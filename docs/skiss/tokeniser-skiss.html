@@ -1,0 +1,847 @@
+<title>Tokeniser skiss</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#E7EAEF; --surface:#F5F6F8; --ink:#141922; --muted:#566073; --rule:#C9D0DA;
+  --accent:#0A58C2; --accent-ink:#FFFFFF;
+  --warn-chip-bg:#F2C14E; --warn-chip-ink:#231800; --err-chip-bg:#D9442B; --err-chip-ink:#FFFFFF;
+  --shadow:0 1px 2px rgba(20,25,34,.08),0 18px 48px -18px rgba(20,25,34,.35);
+  --sans:"Schibsted Grotesk","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1218; --surface:#151A22; --ink:#E3E7ED; --muted:#939CAC; --rule:#283040;
+    --accent:#6CA5FF; --accent-ink:#081120;
+    --warn-chip-bg:#7A6400; --warn-chip-ink:#FFFFFF; --err-chip-bg:#C72E0F; --err-chip-ink:#FFFFFF;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 20px 56px -20px rgba(0,0,0,.8);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1218; --surface:#151A22; --ink:#E3E7ED; --muted:#939CAC; --rule:#283040;
+  --accent:#6CA5FF; --accent-ink:#081120;
+  --warn-chip-bg:#7A6400; --warn-chip-ink:#FFFFFF; --err-chip-bg:#C72E0F; --err-chip-ink:#FFFFFF;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 20px 56px -20px rgba(0,0,0,.8);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-block:32px 64px;padding-inline:max(16px,3vw)}
+
+/* ---------- Sidans ram ---------- */
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+h1{margin:0;font-size:clamp(34px,5vw,50px);line-height:1;font-weight:700;letter-spacing:-.028em;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.sig{font-family:var(--mono);font-size:14px;font-weight:500;letter-spacing:0;padding:4px 10px;border:1px solid var(--rule);border-radius:3px;background:var(--surface);color:var(--ink);font-variant-numeric:tabular-nums;transition:background-color .3s,color .3s,border-color .3s}
+.sig.warn{background:var(--warn-chip-bg);color:var(--warn-chip-ink);border-color:var(--warn-chip-bg)}
+.sig.err{background:var(--err-chip-bg);color:var(--err-chip-ink);border-color:var(--err-chip-bg)}
+.lede{max-width:64ch;color:var(--muted);margin:14px 0 0;font-size:16px;text-wrap:pretty}
+
+.controls{display:flex;flex-wrap:wrap;gap:16px 26px;align-items:flex-end;margin-block:28px 18px;padding-block:16px;border-block:1px solid var(--rule)}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+legend,.ctl-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:0 0 6px;float:left;width:100%}
+.seg-row{clear:both;display:flex;flex-wrap:wrap}
+.seg input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.seg label{font-size:14px;line-height:1.2;padding:7px 12px;border:1px solid var(--rule);margin-left:-1px;background:var(--surface);color:var(--ink);cursor:pointer;position:relative;white-space:nowrap}
+.seg label:first-of-type{border-radius:4px 0 0 4px;margin-left:0}
+.seg label:last-of-type{border-radius:0 4px 4px 0}
+.seg label:hover{z-index:1;border-color:var(--muted)}
+.seg input:checked + label{background:var(--ink);color:var(--ground);border-color:var(--ink);z-index:2}
+.seg input:focus-visible + label{outline:2px solid var(--accent);outline-offset:2px;z-index:3}
+.sel select{clear:both;display:block;font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--rule);border-radius:4px;background:var(--surface);color:var(--ink)}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;padding-block:7px;cursor:pointer}
+.check input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.b{font:600 14px var(--sans);padding:7px 14px;border-radius:4px;cursor:pointer;line-height:1.2}
+.b-primary{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
+.b-ghost{background:transparent;color:var(--ink);border:1px solid var(--rule)}
+.b-ghost:hover{border-color:var(--muted)}
+button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.stage{overflow-x:auto;padding-block:4px 10px}
+.hint{font-family:var(--mono);font-size:12px;color:var(--muted);margin:8px 0 0}
+
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:30px 44px;margin-top:38px;padding-top:26px;border-top:1px solid var(--rule)}
+.note h2{font-size:20px;line-height:1.25;font-weight:600;letter-spacing:-.01em;margin:0 0 8px;text-wrap:balance}
+.note p,.note li{color:var(--muted);max-width:62ch;margin:0}
+.note ol{margin:0;padding-left:1.3em;display:grid;gap:8px}
+.note li::marker{font-family:var(--mono);font-size:12px;color:var(--ink)}
+.note code{font-family:var(--mono);font-size:.84em;color:var(--ink);background:var(--surface);border:1px solid var(--rule);padding:0 4px;border-radius:3px;overflow-wrap:anywhere}
+.note b{color:var(--ink);font-weight:600}
+
+/* ---------- VS Code-fönstret (skissens innehåll) ---------- */
+.vsc{
+  --ui:"Segoe WPC","Segoe UI",system-ui,-apple-system,Ubuntu,"Droid Sans",sans-serif;
+  --mono-ui:"Cascadia Mono",Consolas,"JetBrains Mono","DejaVu Sans Mono",monospace;
+  --bg-editor:#1F1F1F; --bg-side:#181818; --bg-panel:#181818; --bg-status:#181818; --bg-title:#181818;
+  --fg:#CCCCCC; --fg-muted:#9D9D9D; --border:#2B2B2B; --focus:#0078D4;
+  --tab-active:#1F1F1F; --tab-top:#0078D4;
+  --btn-bg:#0078D4; --btn-fg:#FFFFFF; --btn-border:transparent; --btn2-bg:#313131; --btn2-fg:#CCCCCC;
+  --link:#4DAAFC; --hover-bg:#202020; --hover-border:#454545; --hover-shadow:0 2px 8px rgba(0,0,0,.36);
+  --c-blue:#3794FF; --c-purple:#B180D7; --c-orange:#D18616; --c-red:#F14C4C; --c-lines:rgba(204,204,204,.16);
+  --warn-bg:#7A6400; --warn-fg:#FFFFFF; --err-bg:#C72E0F; --err-fg:#FFFFFF; --sb-hover:rgba(255,255,255,.12);
+  --remote-bg:#0078D4; --remote-fg:#FFFFFF;
+  --tile-bg:#1F1F1F; --tile-border:#2B2B2B; --pill:#4A4A4A; --badge-bg:#616161; --badge-fg:#F8F8F8; --badge-border:transparent;
+  --sugg-bg:rgba(55,148,255,.07); --sugg-border:rgba(55,148,255,.38); --code-bg:rgba(255,255,255,.08);
+  --syn-h:#569CD6; --syn-b:#D7BA7D; --ln:#6E7681;
+  --term-fg:#CCCCCC; --term-prompt:#23D18B; --term-path:#3B8EEA; --term-dim:#8B949E; --term-acc:#D7BA7D;
+  --frame:#3C3C3C;
+  position:relative;width:1240px;height:720px;display:grid;grid-template-rows:30px minmax(0,1fr) 22px;
+  font-family:var(--ui);font-size:13px;line-height:1.4;color:var(--fg);background:var(--bg-editor);
+  border:1px solid var(--frame);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);
+}
+.vsc[data-vs="light"]{
+  --bg-editor:#FFFFFF; --bg-side:#F8F8F8; --bg-panel:#F8F8F8; --bg-status:#F8F8F8; --bg-title:#F8F8F8;
+  --fg:#3B3B3B; --fg-muted:#676767; --border:#E5E5E5; --focus:#005FB8;
+  --tab-active:#FFFFFF; --tab-top:#005FB8;
+  --btn-bg:#005FB8; --btn-fg:#FFFFFF; --btn-border:transparent; --btn2-bg:#E5E5E5; --btn2-fg:#3B3B3B;
+  --link:#005FB8; --hover-bg:#F8F8F8; --hover-border:#C8C8C8; --hover-shadow:0 2px 8px rgba(0,0,0,.16);
+  --c-blue:#1A85FF; --c-purple:#652D90; --c-orange:#C27400; --c-red:#E51400; --c-lines:rgba(0,0,0,.10);
+  --warn-bg:#8A5A00; --warn-fg:#FFFFFF; --err-bg:#C72E0F; --err-fg:#FFFFFF; --sb-hover:rgba(0,0,0,.08);
+  --remote-bg:#005FB8; --remote-fg:#FFFFFF;
+  --tile-bg:#FFFFFF; --tile-border:#E5E5E5; --pill:#CECECE; --badge-bg:#D4D4D4; --badge-fg:#3B3B3B; --badge-border:transparent;
+  --sugg-bg:rgba(0,95,184,.05); --sugg-border:rgba(0,95,184,.32); --code-bg:rgba(0,0,0,.06);
+  --syn-h:#0F4A85; --syn-b:#800000; --ln:#6E7681;
+  --term-fg:#3B3B3B; --term-prompt:#107C10; --term-path:#0451A5; --term-dim:#6A6A6A; --term-acc:#795E26;
+  --frame:#CFCFCF;
+}
+.vsc[data-vs="hc"]{
+  --bg-editor:#000000; --bg-side:#000000; --bg-panel:#000000; --bg-status:#000000; --bg-title:#000000;
+  --fg:#FFFFFF; --fg-muted:#D9D9D9; --border:#6FC3DF; --focus:#F38518;
+  --tab-active:#000000; --tab-top:#F38518;
+  --btn-bg:#000000; --btn-fg:#FFFFFF; --btn-border:#6FC3DF; --btn2-bg:#000000; --btn2-fg:#FFFFFF;
+  --link:#21A6FF; --hover-bg:#0C141F; --hover-border:#6FC3DF; --hover-shadow:none;
+  --c-blue:#3794FF; --c-purple:#C99BE8; --c-orange:#F38518; --c-red:#F48771; --c-lines:rgba(255,255,255,.4);
+  --warn-bg:#8F5900; --warn-fg:#FFFFFF; --err-bg:#B5200D; --err-fg:#FFFFFF; --sb-hover:rgba(255,255,255,.16);
+  --remote-bg:#000000; --remote-fg:#FFFFFF;
+  --tile-bg:#000000; --tile-border:#6FC3DF; --pill:#FFFFFF; --badge-bg:#000000; --badge-fg:#FFFFFF; --badge-border:#FFFFFF;
+  --sugg-bg:#000000; --sugg-border:#6FC3DF; --code-bg:#1A1A1A;
+  --syn-h:#6FC3DF; --syn-b:#FFFFFF; --ln:#FFFFFF;
+  --term-fg:#FFFFFF; --term-prompt:#23D18B; --term-path:#3B8EEA; --term-dim:#D9D9D9; --term-acc:#FFD700;
+  --frame:#6FC3DF;
+}
+.vsc button{font:inherit;color:inherit}
+.vsc button:focus-visible,.vsc a:focus-visible{outline:1px solid var(--focus);outline-offset:-1px}
+.vsc svg{flex:none}
+
+.v-title{display:grid;grid-template-columns:1fr minmax(0,380px) 1fr;align-items:center;background:var(--bg-title);border-bottom:1px solid var(--border);font-size:12px;color:var(--fg-muted)}
+.v-menu{display:flex;align-items:center;gap:2px;padding-left:10px;white-space:nowrap;overflow:hidden}
+.v-menu span{padding:2px 6px}
+.v-logo{width:15px;height:15px;margin-right:6px;color:var(--tab-top)}
+.v-cc{height:22px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--fg);background:var(--bg-side)}
+.v-win{justify-self:end;display:flex}
+.v-win span{width:44px;height:30px;display:grid;place-items:center}
+
+.v-body{display:grid;grid-template-columns:48px minmax(0,1fr) auto;min-height:0}
+.v-act{background:var(--bg-side);border-right:1px solid var(--border);display:flex;flex-direction:column;color:var(--fg-muted)}
+.v-act span{height:48px;display:grid;place-items:center}
+.v-act span.on{color:var(--fg);box-shadow:inset 2px 0 0 var(--tab-top)}
+.v-act svg{width:22px;height:22px}
+
+.v-main{display:grid;grid-template-rows:35px minmax(0,1fr) auto;min-width:0;min-height:0}
+.v-tabs{display:flex;background:var(--bg-side);border-bottom:1px solid var(--border)}
+.v-tab{padding:0 14px;display:flex;align-items:center;gap:6px;color:var(--fg-muted);border-right:1px solid var(--border);white-space:nowrap}
+.v-tab.on{background:var(--tab-active);color:var(--fg);box-shadow:inset 0 1px 0 var(--tab-top);margin-bottom:-1px}
+.v-tab i{font-style:normal;font-size:11px;font-weight:700;color:var(--c-blue)}
+.v-editor{background:var(--bg-editor);font-family:var(--mono-ui);font-size:13px;line-height:20px;padding-top:6px;overflow:hidden}
+.ln{display:flex;white-space:pre}
+.ln i{font-style:normal;width:56px;text-align:right;padding-right:24px;color:var(--ln);flex:none}
+.md-h{color:var(--syn-h);font-weight:700}
+.md-b{color:var(--syn-b);font-weight:700}
+
+.v-panel{border-top:1px solid var(--border);background:var(--bg-panel);display:grid;grid-template-rows:35px minmax(0,1fr);min-height:0;height:214px}
+.vsc[data-form="bottom"] .v-panel{height:400px}
+.v-ptabs{display:flex;align-items:stretch;gap:18px;padding:0 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-muted)}
+.v-ptabs span{display:flex;align-items:center}
+.v-ptabs .on{color:var(--fg);box-shadow:inset 0 -1px 0 var(--fg)}
+.v-pbody{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
+.vsc[data-form="bottom"][data-open="true"] .v-pbody{grid-template-columns:34% minmax(0,1fr)}
+.v-term{font-family:var(--mono-ui);font-size:12px;line-height:18px;color:var(--term-fg);padding:4px 14px;overflow:hidden;white-space:pre;min-width:0;margin:0}
+.t-p{color:var(--term-prompt)} .t-path{color:var(--term-path)} .t-dim{color:var(--term-dim)} .t-acc{color:var(--term-acc)}
+.t-cur{background:var(--term-fg);display:inline-block;width:7px;height:14px;vertical-align:-2px}
+
+.v-pane{border-left:1px solid var(--border);display:none;grid-template-rows:24px minmax(0,1fr);min-height:0;min-width:0;--pane-bg:var(--bg-panel)}
+.vsc[data-form="bottom"][data-open="true"] .v-pane{display:grid}
+.v-pane-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 0 14px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--fg-muted);white-space:nowrap}
+.v-pane-title .rcv{font-weight:400;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.v-aux{width:340px;border-left:1px solid var(--border);background:var(--bg-side);display:none;grid-template-rows:35px minmax(0,1fr);min-height:0;--pane-bg:var(--bg-side)}
+.vsc[data-form="side"][data-open="true"] .v-aux{display:grid}
+
+.v-status{display:flex;align-items:stretch;background:var(--bg-status);border-top:1px solid var(--border);color:var(--fg);font-size:12px;white-space:nowrap}
+.sb{display:flex;align-items:center;gap:4px;padding:0 7px}
+.sb-remote{background:var(--remote-bg);color:var(--remote-fg);padding:0 10px;box-shadow:inset -1px 0 0 var(--border)}
+.sb-spacer{flex:1}
+.sb-tk{border:0;background:transparent;cursor:pointer;font-variant-numeric:tabular-nums;transition:background-color .3s,color .3s}
+.sb-tk:hover{background:var(--sb-hover)}
+.sb-tk.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.sb-tk.err{background:var(--err-bg);color:var(--err-fg)}
+
+/* Snabbkortet */
+.hovercard{position:absolute;right:26px;bottom:27px;width:340px;z-index:5;display:none;background:var(--hover-bg);border:1px solid var(--hover-border);border-radius:4px;box-shadow:var(--hover-shadow);padding:8px 10px 6px;font-size:13px}
+.vsc[data-form="card"] .hovercard,.hovercard.show{display:block}
+.hc-top{display:flex;gap:12px;align-items:center}
+.hc-rings{display:flex;gap:4px}
+.hc-rings .ring{width:54px;height:54px}
+.hc-lines{display:grid;gap:1px;font-variant-numeric:tabular-nums;min-width:0}
+.hc-lines b{font-weight:600}
+.hc-fc{margin:8px 0 0}
+.hc-foot{margin:4px 0 0;color:var(--fg-muted);font-size:12px}
+.hc-links{border-top:1px solid var(--hover-border);margin-top:8px;padding-top:5px;display:flex;gap:14px}
+.hc-links a{color:var(--link);text-decoration:none}
+.hc-links a:hover{text-decoration:underline}
+
+/* ---------- Tokeniser-vyn ---------- */
+.tk{color:var(--fg);overflow:auto;min-height:0;transition:opacity .16s ease}
+.tk-wide{display:grid;grid-template-columns:214px minmax(0,1fr) minmax(0,1.05fr);gap:10px 24px;padding:6px 16px 16px;align-content:start}
+.tk-wide > .sugg{grid-column:1 / -1}
+.tk-tall{display:flex;flex-direction:column;gap:18px;padding:4px 14px 20px}
+.tk-sec{min-width:0}
+.tk-h{margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.tk-h .sub{font-weight:400;text-transform:none;letter-spacing:0;text-align:right}
+.tk-h2{margin-top:12px}
+.muted{color:var(--fg-muted)}
+.num{font-variant-numeric:tabular-nums}
+.tk code,.hovercard code{font-family:var(--mono-ui);font-size:12px;background:var(--code-bg);padding:0 4px;border-radius:3px;overflow-wrap:anywhere}
+
+.rings{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ringblock{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}
+.ring{width:88px;height:88px;display:block}
+.ring-track{stroke:var(--c-lines)}
+.ring-arc{transition:stroke-dashoffset .52s cubic-bezier(.2,.7,.2,1),stroke .3s}
+.ring-aldre .ring-arc{opacity:.5}
+.ring-saknas .ring-track{stroke-dasharray:1 6;stroke-linecap:round}
+.ring-num{font-family:var(--ui);font-size:17px;font-weight:600;fill:var(--fg)}
+.ring-word{font-family:var(--ui);font-size:11px;font-weight:600;fill:var(--fg-muted)}
+.static .ring-num{font-size:18px}
+.static .ring-word{font-size:12px}
+.rb-label{font-weight:600;margin-top:2px}
+.rb-meta{color:var(--fg-muted);font-size:12px;line-height:1.35;font-variant-numeric:tabular-nums}
+.pill{margin-top:4px;font-size:11px;line-height:16px;border:1px solid var(--pill);border-radius:9px;padding:0 7px;color:var(--fg-muted);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.pill-aldre{border-style:dashed}
+.pill-saknas{border-style:dotted}
+.est{font-size:10.5px;line-height:15px;border-radius:3px;padding:0 5px;background:var(--badge-bg);color:var(--badge-fg);border:1px solid var(--badge-border);white-space:nowrap;display:inline-block;vertical-align:1px}
+.fc{margin:10px 0 0;font-size:12.5px}
+.fc-sub{margin:2px 0 0;font-size:12px;color:var(--fg-muted)}
+.out{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px}
+.out-l{font-weight:600}
+.out-l span{font-weight:400;color:var(--fg-muted)}
+
+.others{margin:0 0 8px;font-size:12.5px}
+.ctx-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px}
+.ctx-row .num{text-align:right}
+.bar{position:relative;height:6px;background:var(--c-lines);border-radius:3px;margin:6px 0 20px}
+.bar-fill{position:absolute;left:0;top:0;bottom:0;background:var(--c-blue);border-radius:3px;transition:width .52s cubic-bezier(.2,.7,.2,1)}
+.tick{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--fg-muted)}
+.tick span{position:absolute;top:13px;left:0;transform:translateX(-50%);font-size:10px;font-style:normal;color:var(--fg-muted);white-space:nowrap}
+.bar-missing{background:none;height:0;border-top:2px dotted var(--c-lines);border-radius:0;margin-bottom:8px}
+.reason{margin:0 0 10px;font-size:12px;color:var(--fg-muted)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tile{background:var(--tile-bg);border:1px solid var(--tile-border);border-radius:4px;padding:5px 9px 6px}
+.tile-l{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--fg-muted)}
+.tile-v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile-s{font-size:11px;color:var(--fg-muted)}
+
+.curve{width:100%;height:auto;display:block}
+.c-grid{stroke:var(--c-lines);stroke-width:1}
+.c-area{fill:var(--c-blue);fill-opacity:.14}
+.c-line{fill:none;stroke:var(--c-blue);stroke-width:1.6;stroke-linejoin:round}
+.c-today{fill:none;stroke:var(--c-blue);stroke-width:1.6;stroke-dasharray:3 3}
+.c-dot{fill:var(--c-blue);stroke:var(--pane-bg);stroke-width:2}
+.c-lbl{fill:var(--fg-muted);font-family:var(--ui);font-size:9.5px}
+.c-val{fill:var(--fg);font-family:var(--ui);font-size:10px;font-weight:600}
+
+.pj{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pj li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px;font-size:12.5px}
+.pj-name{font-weight:600;overflow-wrap:anywhere}
+.pj-sub{display:block;font-size:11.5px;font-weight:400;color:var(--fg-muted)}
+.pj-t{font-variant-numeric:tabular-nums}
+
+.sugg{border:1px solid var(--sugg-border);border-radius:4px;background:var(--sugg-bg)}
+.sugg-head{display:flex;align-items:center;gap:10px;width:100%;padding:5px 10px;border:0;background:transparent;cursor:pointer;text-align:left}
+.sugg-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--link)}
+.sugg-title{flex:1;min-width:0}
+.chev{width:12px;height:12px;transition:transform .2s ease;color:var(--fg-muted)}
+.sugg[data-open="true"] .chev{transform:rotate(90deg)}
+.sugg-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease}
+.sugg[data-open="true"] .sugg-body{grid-template-rows:1fr}
+.sugg-inner{overflow:hidden}
+.sugg dl{display:grid;grid-template-columns:88px minmax(0,1fr);gap:5px 14px;margin:0;padding:2px 10px 10px;font-size:12.5px}
+.sugg dt{color:var(--fg-muted)}
+.sugg dd{margin:0}
+.btns{display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:4px;vertical-align:middle}
+.btn{font-size:12px;line-height:18px;padding:1px 9px;border-radius:2px;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--btn-fg);cursor:pointer}
+.btn.sec{background:var(--btn2-bg);color:var(--btn2-fg)}
+
+.vsc.reduce *,.vsc.reduce{transition:none !important}
+@media (prefers-reduced-motion: reduce){ .sig{transition:none} }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Klickbar skiss 1 · 14 sep 2026 · exempeldata</p>
+    <h1>Tokeniser <code class="sig" id="sig">5h 64% · v 31%</code></h1>
+    <p class="lede">Prova de tre formerna, båda teman och alla fyra datatillstånd innan vyn byggs. Alla siffror är påhittade. Det som ska godkännas är innehåll, ordning, texter och beteende.</p>
+  </header>
+
+  <div class="controls">
+    <fieldset class="seg">
+      <legend>Form</legend>
+      <div class="seg-row">
+        <input type="radio" name="form" id="form-bottom" value="bottom" checked><label for="form-bottom">Bottenpanel</label>
+        <input type="radio" name="form" id="form-side" value="side"><label for="form-side">Sidopanel</label>
+        <input type="radio" name="form" id="form-card" value="card"><label for="form-card">Snabbkort</label>
+      </div>
+    </fieldset>
+    <fieldset class="seg">
+      <legend>Tema</legend>
+      <div class="seg-row">
+        <input type="radio" name="theme" id="theme-dark" value="dark" checked><label for="theme-dark">Mörkt</label>
+        <input type="radio" name="theme" id="theme-light" value="light"><label for="theme-light">Ljust</label>
+        <input type="radio" name="theme" id="theme-hc" value="hc"><label for="theme-hc">Högkontrast</label>
+      </div>
+    </fieldset>
+    <fieldset class="seg">
+      <legend>Datatillstånd</legend>
+      <div class="seg-row">
+        <input type="radio" name="state" id="state-aktuell" value="aktuell" checked><label for="state-aktuell">Aktuell</label>
+        <input type="radio" name="state" id="state-aldre" value="aldre"><label for="state-aldre">Äldre</label>
+        <input type="radio" name="state" id="state-aterstalld" value="aterstalld"><label for="state-aterstalld">Återställd</label>
+        <input type="radio" name="state" id="state-saknas" value="saknas"><label for="state-saknas">Saknas</label>
+      </div>
+    </fieldset>
+    <div class="sel">
+      <label class="ctl-label" for="sbmode">Statusrad</label>
+      <select id="sbmode">
+        <option value="both">5 h och vecka</option>
+        <option value="five">Bara 5 h</option>
+        <option value="week">Bara vecka</option>
+        <option value="nearest">Närmaste gräns</option>
+        <option value="ctx">Kontext</option>
+      </select>
+    </div>
+    <label class="check" for="reduce"><input type="checkbox" id="reduce"> Minskad rörelse</label>
+    <div class="actions">
+      <button class="b b-primary" id="sim" type="button">Simulera nytt svar</button>
+      <button class="b b-ghost" id="reset" type="button">Återställ exempel</button>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="vsc" id="vsc" data-vs="dark" data-form="bottom" data-open="true">
+      <div class="v-title">
+        <div class="v-menu">
+          <svg class="v-logo" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M11.5 1.8 5 8l6.5 6.2M11.5 1.8 14 3v10l-2.5 1.2M5 8 2.2 5.6 1.5 6.3v3.4l.7.7L5 8"/></svg>
+          <span>Arkiv</span><span>Redigera</span><span>Markering</span><span>Visa</span><span>Gå</span><span>Kör</span><span>Terminal</span><span>Hjälp</span>
+        </div>
+        <div class="v-cc">tokeniser [WSL: Ubuntu]</div>
+        <div class="v-win" aria-hidden="true"><span>&#8211;</span><span>&#9633;</span><span>&#10005;</span></div>
+      </div>
+
+      <div class="v-body">
+        <nav class="v-act" aria-hidden="true">
+          <span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/></svg></span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></svg></span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="5" r="2"/><circle cx="7" cy="19" r="2"/><circle cx="17" cy="8" r="2"/><path d="M7 7v10M17 10c0 4-5 3-9.5 7"/></svg></span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 10h6v10H4zM10 14h6v6h-6zM14 4h6v6h-6z"/></svg></span>
+        </nav>
+
+        <div class="v-main">
+          <div class="v-tabs">
+            <div class="v-tab on"><i>M&#8595;</i>tokeniser-sammanfattning.md</div>
+            <div class="v-tab"><i>{}</i>settings.json</div>
+          </div>
+          <div class="v-editor" aria-hidden="true">
+            <div class="ln"><i>1</i><span class="md-h"># Tokeniser – sammanfattning av grillningen</span></div>
+            <div class="ln"><i>2</i></div>
+            <div class="ln"><i>3</i><span><span class="md-b">**Status:**</span> Designbeslut fattade och gemensam förståelse bekräftad (2026-09-14).</span></div>
+            <div class="ln"><i>4</i><span><span class="md-b">**Datum:**</span> 2026-09-14</span></div>
+            <div class="ln"><i>5</i></div>
+            <div class="ln"><i>6</i><span>Det här dokumentet sammanfattar alla beslut från grillningen av projektidén.</span></div>
+            <div class="ln"><i>7</i></div>
+            <div class="ln"><i>8</i><span>---</span></div>
+            <div class="ln"><i>9</i></div>
+            <div class="ln"><i>10</i><span class="md-h">## 1. Identitet</span></div>
+            <div class="ln"><i>11</i></div>
+            <div class="ln"><i>12</i><span>Tokeniser är en VS Code-extension som gör användningen av Claude Code synlig och begriplig.</span></div>
+            <div class="ln"><i>13</i></div>
+            <div class="ln"><i>14</i><span>Den skiljer sig från befintliga verktyg genom tre principer:</span></div>
+            <div class="ln"><i>15</i></div>
+            <div class="ln"><i>16</i><span>1. <span class="md-b">**Bara dokumenterade, lokala källor.**</span> Den gör inga nätverksanrop.</span></div>
+            <div class="ln"><i>17</i><span>2. <span class="md-b">**Tydlig om datans ålder.**</span> Varje siffra visar hur färsk den är.</span></div>
+            <div class="ln"><i>18</i><span>3. <span class="md-b">**Byggd för WSL och VS Code**</span> från början.</span></div>
+            <div class="ln"><i>19</i></div>
+            <div class="ln"><i>20</i><span class="md-h">## 2. Målgrupp och ambition</span></div>
+            <div class="ln"><i>21</i></div>
+            <div class="ln"><i>22</i><span>| Beslut | Innehåll |</span></div>
+          </div>
+
+          <div class="v-panel">
+            <div class="v-ptabs"><span>Problem</span><span>Utdata</span><span>Felsökningskonsol</span><span class="on">Terminal</span><span>Portar</span></div>
+            <div class="v-pbody">
+              <pre class="v-term" id="term"></pre>
+              <div class="v-pane">
+                <div class="v-pane-title"><span>Tokeniser</span><span class="rcv" data-rcv></span></div>
+                <div class="tk tk-wide" id="tk-bottom"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="v-aux">
+          <div class="v-pane-title"><span>Tokeniser</span><span class="rcv" data-rcv></span></div>
+          <div class="tk tk-tall" id="tk-side"></div>
+        </aside>
+      </div>
+
+      <div class="v-status">
+        <span class="sb sb-remote"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m3 5 3 3-3 3M13 5l-3 3 3 3"/></svg>WSL: Ubuntu</span>
+        <span class="sb"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="5" cy="3.8" r="1.6"/><circle cx="5" cy="12.2" r="1.6"/><circle cx="11" cy="6" r="1.6"/><path d="M5 5.4v5.2M11 7.6c0 2.4-3.5 2-6 3.2"/></svg>main</span>
+        <span class="sb">&#8855; 0&nbsp;&nbsp;&#9888; 0</span>
+        <span class="sb-spacer"></span>
+        <span class="sb">Rad 12, kol 4</span>
+        <span class="sb">UTF-8</span>
+        <span class="sb">Markdown</span>
+        <button class="sb sb-tk" id="sb-tk" type="button" aria-describedby="hovercard"></button>
+        <span class="sb"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1.2 1.5H2.8zM6.5 14.2h3"/></svg></span>
+      </div>
+
+      <div class="hovercard" id="hovercard" role="tooltip"></div>
+    </div>
+  </div>
+  <p class="hint">Håll musen över Tokeniser i statusraden för snabbkortet. Klicka på den för att visa eller dölja vyn.</p>
+
+  <section class="notes">
+    <div class="note">
+      <p class="eyebrow" id="note-form-eyebrow">Form</p>
+      <h2 id="note-form-title"></h2>
+      <p id="note-form-text"></p>
+    </div>
+    <div class="note">
+      <p class="eyebrow">Datatillstånd</p>
+      <h2 id="note-state-title"></h2>
+      <p id="note-state-text"></p>
+    </div>
+    <div class="note">
+      <p class="eyebrow">Att ta ställning till</p>
+      <h2>Fyra frågor innan godkännande</h2>
+      <ol>
+        <li>Ska förslaget ligga som en fällbar rad överst i vyn, eller som en egen sektion efter sessionen?</li>
+        <li>Räcker färg och etikett för att skilja 5 h från vecka, eller ska ringarna ha olika storlek?</li>
+        <li>Ska statusraden visa en klocka när datan är <b>Äldre</b>, eller ska åldern bara synas i snabbkortet?</li>
+        <li>Är tre kolumner rätt i bottenpanelen, eller ska 7 dagar och projekt ligga bakom ett klick?</li>
+      </ol>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const vsc = $('#vsc'), tkBottom = $('#tk-bottom'), tkSide = $('#tk-side'), card = $('#hovercard'), sbTk = $('#sb-tk');
+
+  const NB = ' ';
+  const nf0 = new Intl.NumberFormat('sv-SE');
+  const nf1 = new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const n0 = v => nf0.format(Math.round(v));
+  const mil = v => nf1.format(v) + NB + 'M';
+  const pctTxt = v => Math.round(v) + NB + '%';
+  const pad = n => String(n).padStart(2, '0');
+  const clock = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+  const dur = m => m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const C = 2 * Math.PI * 36;
+  const FIVE_RESET = 17 * 60;
+  const RATE = 22 / 60; // % per minut, från ökningen de senaste 30 min
+
+  const base = () => ({
+    nowMin: 908, five: 64, week: 31, ctx: 214800,
+    tokens: { input: 38412, output: 21905, cacheCreate: 412330, cacheRead: 3184900 },
+    days: [18.4, 26.1, 9.8, 31.5, 22.0, 4.2, 12.7],
+    projects: [
+      { name: 'lullo/tokeniser', sub: 'github.com', sessions: 2, time: '1 h 42 min', tokens: 7.9 },
+      { name: 'lullo/onerag', sub: 'worktree one-rag-to-rule-them-all', sessions: 1, time: '38 min', tokens: 3.6 },
+      { name: 'sound-bot', sub: '~/projects/sound-bot', sessions: 1, time: '12 min', tokens: 1.2 },
+    ],
+    received: '15:08:14',
+  });
+  let vals = base();
+
+  let prefersDark = false;
+  try { const t = document.documentElement.dataset.theme; prefersDark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) {}
+  let reduceInit = false;
+  try { reduceInit = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  const ui = { form: 'bottom', theme: prefersDark ? 'dark' : 'light', state: 'aktuell', mode: 'both', open: true, reduce: reduceInit, suggOpen: false };
+
+  /* ---------- Härledda värden ---------- */
+  function limit(which) {
+    const pct = which === 'five' ? vals.five : vals.week;
+    const reset = which === 'five'
+      ? { clock: '17:00', in: 'om ' + dur(FIVE_RESET - vals.nowMin) }
+      : { clock: 'tor 09:00', in: 'om 2 d 18 h' };
+    switch (ui.state) {
+      case 'aktuell': return { kind: 'aktuell', pct, reset };
+      case 'aldre': return { kind: 'aldre', pct, reset, age: '40 min' };
+      case 'aterstalld': return which === 'five' ? { kind: 'aterstalld', reset: { clock: '15:00' } } : { kind: 'aldre', pct, reset, age: '2 h 10 min' };
+      default: return { kind: 'saknas' };
+    }
+  }
+  const hasPct = lv => lv.kind === 'aktuell' || lv.kind === 'aldre';
+  const arcColor = (pct, color) => pct >= 95 ? 'var(--c-red)' : pct >= 80 ? 'var(--c-orange)' : color;
+  const RING_COLOR = { five: 'var(--c-blue)', week: 'var(--c-purple)' };
+
+  /* ---------- Delar av vyn ---------- */
+  function ringSVG(lv, key, isStatic) {
+    const pct = hasPct(lv) ? lv.pct : 0;
+    const bind = attr => isStatic ? '' : ` ${attr}="${key}"`;
+    const arc = hasPct(lv)
+      ? `<circle class="ring-arc"${bind('data-arc')} cx="44" cy="44" r="36" fill="none" stroke-width="7" stroke-linecap="round" style="stroke:${arcColor(pct, RING_COLOR[key])}" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${(C * (1 - pct / 100)).toFixed(2)}" transform="rotate(-90 44 44)"/>`
+      : '';
+    const center = hasPct(lv)
+      ? `<text class="ring-num" x="44" y="50" text-anchor="middle"${bind('data-num')}>${pctTxt(pct)}</text>`
+      : `<text class="ring-word" x="44" y="48" text-anchor="middle">${lv.kind === 'aterstalld' ? 'Återställd' : 'Saknas'}</text>`;
+    return `<svg class="ring ring-${lv.kind}${isStatic ? ' static' : ''}" viewBox="0 0 88 88" aria-hidden="true"><circle class="ring-track" cx="44" cy="44" r="36" fill="none" stroke-width="7"/>${arc}${center}</svg>`;
+  }
+
+  function ringBlock(key, label, lv) {
+    const meta = hasPct(lv) ? `återställs ${lv.reset.clock}<br>${lv.reset.in}`
+      : lv.kind === 'aterstalld' ? `återställdes ${lv.reset.clock}<br>ny siffra vid nästa svar`
+      : 'kommer med första<br>svaret i sessionen';
+    const pill = { aktuell: 'Aktuell', aldre: `Äldre · ${lv.age}`, aterstalld: 'Återställd', saknas: 'Saknas' }[lv.kind];
+    const aria = hasPct(lv) ? `${label}: ${Math.round(lv.pct)} procent förbrukat` : `${label}: ${pill}`;
+    return `<div class="ringblock" role="group" aria-label="${aria}">${ringSVG(lv, key, false)}<div class="rb-label">${label}</div><div class="rb-meta">${meta}</div><span class="pill pill-${lv.kind}">${pill}</span></div>`;
+  }
+
+  function forecastMain() {
+    if (vals.five >= 100) return 'Gränsen är nådd · återställs 17:00';
+    const t = vals.nowMin + Math.ceil((100 - vals.five) / RATE);
+    return t >= FIVE_RESET ? 'Räcker till återställningen kl. 17:00' : `Når gränsen cirka kl. ${clock(Math.round(t / 5) * 5)}`;
+  }
+  const HIDDEN_WHY = { aldre: 'senaste värdet är 40 min gammalt', aterstalld: 'ny siffra kommer vid nästa svar', saknas: 'den kräver minst 3 mätningar över 10 min' };
+
+  function limits() {
+    const f = limit('five'), w = limit('week');
+    const fc = ui.state === 'aktuell'
+      ? `<p class="fc"><span class="est">uppskattning</span> ${forecastMain()}</p><p class="fc-sub">Takt för 5 h: +11${NB}% senaste 30 min. Veckan räcker till återställningen.</p>`
+      : `<p class="fc muted">Prognos döljs – ${HIDDEN_WHY[ui.state]}.</p>`;
+    const out = ui.state === 'aktuell'
+      ? `<div>≈ 7${NB}% av 5 h sedan 13:10 <span class="est">uppskattning</span></div>`
+      : `<div class="muted">Går inte att särskilja</div>`;
+    return `<section class="tk-sec"><h3 class="tk-h"><span>Gränser</span><span class="sub">konto · alla appar</span></h3>
+      <div class="rings">${ringBlock('five', '5 timmar', f)}${ringBlock('week', 'Vecka', w)}</div>
+      ${fc}
+      <div class="out"><div class="out-l">Utanför VS Code <span>app, webb, andra enheter</span></div>${out}</div></section>`;
+  }
+
+  function session() {
+    const miss = ui.state === 'saknas';
+    const age = ui.state === 'aldre' ? ' · för 40 min sedan' : ui.state === 'aterstalld' ? ' · för 2 h sedan' : '';
+    const pct = vals.ctx / 1e4;
+    const ctx = miss
+      ? `<div class="ctx-row"><span>Kontext</span><span class="muted">Saknas</span></div><div class="bar bar-missing"></div><p class="reason">Kontextens användning kommer med första svaret.</p>`
+      : `<div class="ctx-row"><span>Kontext</span><span class="num"><span data-num="ctx">${n0(vals.ctx)}</span> av ${n0(1e6)} · <span data-num="ctxpct">${Math.round(pct)}</span>${NB}%${age}</span></div>
+         <div class="bar"><div class="bar-fill" data-bar="ctx" style="width:${pct}%"></div><i class="tick" style="left:20%"><span>200${NB}k</span></i><i class="tick" style="left:60%"><span>60${NB}%</span></i></div>`;
+    const t = vals.tokens;
+    const tile = (label, key, v) => `<div class="tile"><div class="tile-l">${label}</div><div class="tile-v"${miss ? '' : ` data-num="${key}"`}>${miss ? '–' : n0(v)}</div>${miss ? '<div class="tile-s">saknas</div>' : ''}</div>`;
+    return `<section class="tk-sec"><h3 class="tk-h"><span>Session</span><span class="sub">${miss ? 'ny session' : 'Opus 5 · high'}</span></h3>
+      <p class="others">lullo/tokeniser <span class="muted">· +2 andra aktiva sessioner</span></p>
+      ${ctx}
+      <div class="tiles">${tile('Input', 'input', t.input)}${tile('Output', 'output', t.output)}${tile('Cache skapad', 'cacheCreate', t.cacheCreate)}${tile('Cache läst', 'cacheRead', t.cacheRead)}</div></section>`;
+  }
+
+  function curve(days) {
+    const W = 280, H = 112, L = 34, R = 16, T = 8, B = 20, pw = W - L - R, ph = H - T - B, max = 40;
+    const x = i => L + i * pw / 6, y = v => T + ph * (1 - Math.min(v, max) / max);
+    const p = days.map((v, i) => [x(i).toFixed(1), y(v).toFixed(1)]);
+    const line = p.slice(0, 6).map((q, i) => `${i ? 'L' : 'M'}${q[0]} ${q[1]}`).join(' ');
+    const area = p.map((q, i) => `${i ? 'L' : 'M'}${q[0]} ${q[1]}`).join(' ') + ` L${x(6).toFixed(1)} ${T + ph} L${L} ${T + ph} Z`;
+    const grid = [0, 20, 40].map(v => `<line class="c-grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="c-lbl" x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v ? v + NB + 'M' : '0'}</text>`).join('');
+    const names = ['tis', 'ons', 'tor', 'fre', 'lör', 'sön', 'i dag'];
+    const xl = names.map((n, i) => `<text class="c-lbl" x="${x(i).toFixed(1)}" y="${H - 5}" text-anchor="middle">${n}</text>`).join('');
+    return `<svg class="curve" viewBox="0 0 ${W} ${H}" role="img" aria-label="Tokens per dag de senaste 7 dagarna">${grid}
+      <path class="c-area" d="${area}"/><path class="c-line" d="${line}"/><path class="c-today" d="M${p[5][0]} ${p[5][1]} L${p[6][0]} ${p[6][1]}"/>
+      <circle class="c-dot" cx="${p[6][0]}" cy="${p[6][1]}" r="3.2"/><text class="c-val" x="${(x(6) - 6).toFixed(1)}" y="${(y(days[6]) - 8).toFixed(1)}" text-anchor="end">${mil(days[6])}</text>${xl}</svg>`;
+  }
+
+  function history() {
+    const sum = vals.days.reduce((a, b) => a + b, 0);
+    const rows = vals.projects.map(pr => `<li><span class="pj-name">${esc(pr.name)}<span class="pj-sub">${esc(pr.sub)} · ${pr.sessions} ${pr.sessions === 1 ? 'session' : 'sessioner'} · ${pr.time}</span></span><span class="pj-t">${mil(pr.tokens)}</span></li>`).join('');
+    return `<section class="tk-sec"><h3 class="tk-h"><span>7 dagar</span><span class="sub">${mil(sum)} tokens</span></h3>${curve(vals.days)}
+      <h3 class="tk-h tk-h2"><span>I dag per projekt</span></h3><ul class="pj">${rows}</ul></section>`;
+  }
+
+  const copyBtn = (cmd, sec) => `<button class="btn${sec ? ' sec' : ''}" type="button" data-copy="${cmd}">Kopiera ${cmd}</button>`;
+
+  function suggestion() {
+    if (ui.state === 'saknas') return '';
+    const cache = ui.state === 'aterstalld';
+    const title = cache ? 'Senaste svaret kunde inte läsa från cachen' : 'Kontexten har passerat 200 000 tokens';
+    const rows = cache ? [
+      ['Observerat', 'Cachen hann gå ut före svaret, enligt <code>prompt_cache.last_miss_cause</code>.'],
+      ['Varför', 'Hela kontexten skrevs till cachen igen. Det drar mer av gränsen än ett svar som läser från cachen.'],
+      ['Åtgärd', `Byter du uppgift efter en paus, börja om med <code>/clear</code>. <span class="btns">${copyBtn('/clear')}</span>`],
+      ['Effekt', `Nästa omskrivning blir ${n0(vals.ctx)} tokens mindre med <code>/clear</code>.`],
+      ['Säkerhet', 'Säker – orsaken rapporteras av Claude Code.'],
+    ] : [
+      ['Observerat', `Sessionen använder <span data-num="ctx">${n0(vals.ctx)}</span> tokens. Förslaget visas vid 200 000 tokens eller 60${NB}% av fönstret, det som kommer först.`],
+      ['Varför', 'Hela kontexten skickas med varje svar, så varje svar drar mer av gränsen ju större kontexten är.'],
+      ['Åtgärd', `Sammanfatta med <code>/compact</code>, eller börja om med <code>/clear</code> om du har bytt uppgift. <span class="btns">${copyBtn('/compact')}${copyBtn('/clear', true)}</span>`],
+      ['Effekt', `<code>/clear</code> frigör <span data-num="ctx">${n0(vals.ctx)}</span> tokens. Effekten av <code>/compact</code> är okänd.`],
+      ['Säkerhet', ui.state === 'aldre' ? 'Säker – uppmätt för 40 min sedan.' : 'Säker – bygger på uppmätt kontext.'],
+    ];
+    const dl = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    return `<div class="sugg" data-open="${ui.suggOpen}">
+      <button class="sugg-head" type="button" id="sugg-toggle" aria-expanded="${ui.suggOpen}" aria-controls="sugg-body">
+        <span class="sugg-tag">Förslag</span><span class="sugg-title">${title}</span><span class="est">säker</span>
+        <svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4.5 2.5 3.5 3.5-3.5 3.5"/></svg>
+      </button>
+      <div class="sugg-body" id="sugg-body"><div class="sugg-inner"><dl>${dl}</dl></div></div></div>`;
+  }
+
+  function viewHTML(layout) {
+    return layout === 'wide'
+      ? `${suggestion()}${limits()}${session()}${history()}`
+      : `${limits()}${suggestion()}${session()}${history()}`;
+  }
+
+  function cardHTML() {
+    const f = limit('five'), w = limit('week');
+    const line = (label, lv) => hasPct(lv)
+      ? (lv.kind === 'aktuell' ? `${label} <b>${pctTxt(lv.pct)}</b> · återställs ${lv.reset.clock}` : `${label} <b>${pctTxt(lv.pct)}</b> · för ${lv.age} sedan`)
+      : lv.kind === 'aterstalld' ? `${label} återställd · ny siffra vid nästa svar` : `${label} saknas`;
+    const ctx = ui.state === 'saknas' ? 'Kontext saknas' : `Kontext <b>${pctTxt(vals.ctx / 1e4)}</b> · ${n0(vals.ctx)} tokens`;
+    const fc = ui.state === 'aktuell' ? `${forecastMain()} <span class="est">uppskattning</span>` : `<span class="muted">Prognos döljs – ${HIDDEN_WHY[ui.state]}.</span>`;
+    const foot = ui.state === 'saknas' ? 'Gränserna kommer med första svaret i sessionen.' : 'Uppdateras vid nästa svar i Claude Code.';
+    return `<div class="hc-top"><div class="hc-rings">${ringSVG(f, 'five', true)}${ringSVG(w, 'week', true)}</div>
+      <div class="hc-lines"><div>${line('5 h', f)}</div><div>${line('Vecka', w)}</div><div>${ctx}</div></div></div>
+      <p class="hc-fc">${fc}</p><p class="hc-foot">${foot}</p>
+      <div class="hc-links"><a href="#" data-open-view>Öppna Tokeniser</a><a href="#" data-open-view>Visa förslag</a></div>`;
+  }
+
+  /* ---------- Statusrad, terminal och anteckningar ---------- */
+  const CLOCK_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.8V8l2.2 1.4"/></svg>';
+  const GAUGE_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1 1 11 0"/><path d="M8 11.5 10.8 7"/></svg>';
+
+  function statusParts() {
+    const f = limit('five'), w = limit('week');
+    const one = (p, lv) => hasPct(lv) ? `${p} ${Math.round(lv.pct)}%` : lv.kind === 'aterstalld' ? `${p} ↺` : `${p} –`;
+    return { f, w, five: one('5h', f), week: one('v', w), ctx: ui.state === 'saknas' ? 'ktx –' : `ktx ${Math.round(vals.ctx / 1e4)}%` };
+  }
+  function statusText() {
+    const p = statusParts();
+    let text, shown;
+    switch (ui.mode) {
+      case 'five': text = p.five; shown = [p.f]; break;
+      case 'week': text = p.week; shown = [p.w]; break;
+      case 'ctx': text = p.ctx; shown = []; break;
+      case 'nearest': {
+        const pick = !hasPct(p.w) || (hasPct(p.f) && p.f.pct >= p.w.pct) ? 'five' : 'week';
+        text = p[pick]; shown = [pick === 'five' ? p.f : p.w]; break;
+      }
+      default: text = `${p.five} · ${p.week}`; shown = [p.f, p.w];
+    }
+    const top = Math.max(0, ...shown.filter(hasPct).map(l => l.pct));
+    const level = top >= 95 ? 'err' : top >= 80 ? 'warn' : '';
+    return { text, level, line: `${p.five} · ${p.week} · ${p.ctx}` };
+  }
+
+  const TERM_REPLY = `<span class="t-p">lullo@wsl</span>:<span class="t-path">~/projects/tokeniser</span>$ claude
+<span class="t-dim">›</span> lägg till validering av rate_limits i insamlaren
+
+<span class="t-acc">●</span> Läser src/collector/validate.ts
+<span class="t-acc">●</span> Uppdaterar src/collector/validate.ts
+  <span class="t-dim">⎿  +48 −6</span>
+
+  Klart. Fönster som saknas hoppas nu över
+  utan att något skrivs i terminalen.
+
+<span class="t-dim">›</span> <span class="t-cur"></span>
+`;
+  const TERM_NEW = `<span class="t-p">lullo@wsl</span>:<span class="t-path">~/projects/tokeniser</span>$ claude
+
+<span class="t-dim">›</span> <span class="t-cur"></span>
+`;
+
+  const FORM_NOTES = {
+    bottom: ['Bottenpanel, bredvid Terminal', 'Bred och låg. Gränser, session och historik ligger i tre kolumner, och förslaget är en rad överst som fälls ut. Klicka på Tokeniser i statusraden för att visa eller dölja vyn.'],
+    side: ['Högra sidopanelen', 'Valbar placering. Samma innehåll staplas i en smal kolumn som rullar, med gränserna först. Terminalen får hela bottenpanelen.'],
+    card: ['Snabbkort vid statusraden', 'Visas bara när musen hålls över statusraden. Det är ett verktygstips, så det har en statisk bild, prognos och länkar, men inga skript och ingen rörelse. Länken <b>Öppna Tokeniser</b> öppnar vyn.'],
+  };
+  const STATE_NOTES = {
+    aktuell: ['Aktuell', 'Senaste värdet är 12 sekunder gammalt, så siffrorna visas utan ålder och prognosen syns, märkt uppskattning. Tryck på <b>Simulera nytt svar</b>: värdena glider till sina nya lägen, och statusraden byter färg vid 80 % och 95 %.'],
+    aldre: ['Äldre', 'Senaste svaret kom för 40 minuter sedan. Varje siffra visar sin ålder, statusraden får en klocka och prognosen döljs med en orsak. Nedräkningen till återställning fortsätter lokalt.'],
+    aterstalld: ['Återställd', '<code>rate_limits.five_hour.resets_at</code> passerade kl. 15:00. Ringen visar Återställd, aldrig 0 %, tills nästa svar ger en ny siffra. Veckan är samtidigt Äldre, och förslaget gäller en cachemiss.'],
+    saknas: ['Saknas', 'Sessionen har inte fått något svar än, så <code>rate_limits</code> och kontextens användning saknas. Varje ruta säger vad som saknas i stället för att visa 0. Historiken från tidigare dagar finns kvar.'],
+  };
+  const RCV = { aktuell: () => `mottaget ${vals.received}`, aldre: () => 'mottaget 14:28:03', aterstalld: () => 'mottaget 12:58:40', saknas: () => 'mottaget 15:07:52 · rate_limits saknas' };
+
+  function updateChrome() {
+    const s = statusText();
+    sbTk.innerHTML = `${GAUGE_ICON}${ui.state === 'aldre' && ui.mode !== 'ctx' ? CLOCK_ICON : ''}<span>${s.text}</span>`;
+    sbTk.className = `sb sb-tk${s.level ? ' ' + s.level : ''}`;
+    sbTk.setAttribute('aria-label', `Tokeniser: ${s.text}. Klicka för att visa eller dölja vyn.`);
+    const sig = $('#sig');
+    sig.textContent = s.text;
+    sig.className = `sig${s.level ? ' ' + s.level : ''}`;
+    $('#term').innerHTML = (ui.state === 'saknas' ? TERM_NEW : TERM_REPLY) + s.line;
+    card.innerHTML = cardHTML();
+    $$('[data-rcv]').forEach(el => el.textContent = RCV[ui.state]());
+    const fn = FORM_NOTES[ui.form], sn = STATE_NOTES[ui.state];
+    $('#note-form-title').textContent = fn[0];
+    $('#note-form-text').innerHTML = fn[1];
+    $('#note-state-title').textContent = sn[0];
+    $('#note-state-text').innerHTML = sn[1];
+  }
+
+  function activeView() {
+    if (!ui.open) return null;
+    return ui.form === 'bottom' ? tkBottom : ui.form === 'side' ? tkSide : null;
+  }
+
+  function apply(opts = {}) {
+    vsc.dataset.vs = ui.theme;
+    vsc.dataset.form = ui.form;
+    vsc.dataset.open = String(ui.open);
+    vsc.classList.toggle('reduce', ui.reduce);
+    const target = activeView();
+    [tkBottom, tkSide].forEach(el => { if (el !== target) el.innerHTML = ''; });
+    if (target) {
+      const html = viewHTML(target === tkBottom ? 'wide' : 'tall');
+      if (opts.fade && !ui.reduce) {
+        target.style.opacity = '0';
+        setTimeout(() => { target.innerHTML = html; target.style.opacity = '1'; }, 150);
+      } else {
+        target.innerHTML = html;
+        target.style.opacity = '1';
+      }
+    }
+    updateChrome();
+  }
+
+  /* ---------- Simulering ---------- */
+  function simulate() {
+    if (ui.state !== 'aktuell') {
+      ui.state = 'aktuell';
+      $('#state-aktuell').checked = true;
+      vals = base();
+      apply({ fade: true });
+      return;
+    }
+    const prev = structuredClone(vals), next = structuredClone(vals);
+    next.five = Math.min(100, prev.five + 6);
+    next.week = Math.min(100, prev.week + 2);
+    next.ctx = prev.ctx + 16400;
+    next.nowMin = prev.nowMin + 3;
+    next.tokens.input += 2140; next.tokens.output += 1830; next.tokens.cacheCreate += 16400; next.tokens.cacheRead += prev.ctx;
+    next.days[6] = +(prev.days[6] + 0.25).toFixed(2);
+    next.projects[0].tokens = +(prev.projects[0].tokens + 0.25).toFixed(2);
+    next.received = `${clock(next.nowMin)}:14`;
+    vals = next;
+    updateChrome();
+
+    const view = activeView();
+    if (!view) return;
+    ['five', 'week'].forEach(k => {
+      const arc = view.querySelector(`[data-arc="${k}"]`);
+      if (arc) { arc.style.strokeDashoffset = (C * (1 - next[k] / 100)).toFixed(2); arc.style.stroke = arcColor(next[k], RING_COLOR[k]); }
+    });
+    const bar = view.querySelector('[data-bar="ctx"]');
+    if (bar) bar.style.width = (next.ctx / 1e4) + '%';
+
+    const pairs = [
+      ['five', prev.five, next.five, v => pctTxt(v)], ['week', prev.week, next.week, v => pctTxt(v)],
+      ['ctx', prev.ctx, next.ctx, n0], ['ctxpct', prev.ctx / 1e4, next.ctx / 1e4, v => String(Math.round(v))],
+      ...['input', 'output', 'cacheCreate', 'cacheRead'].map(k => [k, prev.tokens[k], next.tokens[k], n0]),
+    ];
+    const paint = e => pairs.forEach(([k, a, b, f]) => view.querySelectorAll(`[data-num="${k}"]`).forEach(el => { el.textContent = f(a + (b - a) * e); }));
+    const finish = () => { if (activeView() === view) view.innerHTML = viewHTML(view === tkBottom ? 'wide' : 'tall'); };
+    if (ui.reduce) { paint(1); finish(); return; }
+    const t0 = performance.now(), D = 520;
+    const step = now => {
+      const k = Math.min(1, (now - t0) / D);
+      paint(1 - Math.pow(1 - k, 3));
+      if (k < 1) requestAnimationFrame(step); else finish();
+    };
+    requestAnimationFrame(step);
+  }
+
+  /* ---------- Snabbkort vid hovring ---------- */
+  let hideTimer;
+  const showCard = () => { clearTimeout(hideTimer); if (ui.form !== 'card') card.classList.add('show'); };
+  const hideCard = () => { clearTimeout(hideTimer); hideTimer = setTimeout(() => card.classList.remove('show'), 180); };
+  sbTk.addEventListener('mouseenter', showCard);
+  sbTk.addEventListener('mouseleave', hideCard);
+  sbTk.addEventListener('focus', showCard);
+  sbTk.addEventListener('blur', hideCard);
+  card.addEventListener('mouseenter', showCard);
+  card.addEventListener('mouseleave', hideCard);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') card.classList.remove('show'); });
+
+  function openView() {
+    if (ui.form === 'card') { ui.form = 'bottom'; $('#form-bottom').checked = true; }
+    ui.open = true;
+    card.classList.remove('show');
+    apply();
+  }
+
+  sbTk.addEventListener('click', () => {
+    if (ui.form === 'card') { openView(); return; }
+    ui.open = !ui.open;
+    card.classList.remove('show');
+    apply();
+  });
+
+  vsc.addEventListener('click', async e => {
+    const link = e.target.closest('[data-open-view]');
+    if (link) {
+      e.preventDefault();
+      if (link.textContent.includes('förslag')) ui.suggOpen = true;
+      openView();
+      return;
+    }
+    const toggle = e.target.closest('#sugg-toggle');
+    if (toggle) {
+      ui.suggOpen = !ui.suggOpen;
+      $$('.sugg', vsc).forEach(s => s.dataset.open = String(ui.suggOpen));
+      toggle.setAttribute('aria-expanded', String(ui.suggOpen));
+      return;
+    }
+    const btn = e.target.closest('[data-copy]');
+    if (btn) {
+      const cmd = btn.dataset.copy;
+      try { await navigator.clipboard.writeText(cmd); btn.textContent = 'Kopierat'; }
+      catch (err) { btn.textContent = 'Urklipp blockerat i skissen'; }
+      setTimeout(() => { btn.textContent = `Kopiera ${cmd}`; }, 1600);
+    }
+  });
+
+  /* ---------- Kontroller ---------- */
+  document.querySelectorAll('input[name="form"]').forEach(r => r.addEventListener('change', () => { ui.form = r.value; ui.open = true; card.classList.remove('show'); apply({ fade: true }); }));
+  document.querySelectorAll('input[name="theme"]').forEach(r => r.addEventListener('change', () => { ui.theme = r.value; apply(); }));
+  document.querySelectorAll('input[name="state"]').forEach(r => r.addEventListener('change', () => { ui.state = r.value; vals = base(); apply({ fade: true }); }));
+  $('#sbmode').addEventListener('change', e => { ui.mode = e.target.value; updateChrome(); });
+  const reduceBox = $('#reduce');
+  reduceBox.checked = ui.reduce;
+  reduceBox.addEventListener('change', () => { ui.reduce = reduceBox.checked; vsc.classList.toggle('reduce', ui.reduce); });
+  $('#sim').addEventListener('click', simulate);
+  $('#reset').addEventListener('click', () => {
+    vals = base(); ui.state = 'aktuell'; ui.suggOpen = false; ui.open = true;
+    $('#state-aktuell').checked = true;
+    apply({ fade: true });
+  });
+
+  /* ---------- Skala fönstret efter bredden ---------- */
+  const stage = $('#stage');
+  const fit = () => { const z = Math.max(0.62, Math.min(1, stage.clientWidth / 1242)); vsc.style.zoom = z; };
+  try { new ResizeObserver(fit).observe(stage); } catch (e) { addEventListener('resize', fit); }
+  fit();
+
+  $(`#theme-${ui.theme}`).checked = true;
+  apply();
+})();
+</script>
