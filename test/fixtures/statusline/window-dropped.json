@@ -1,0 +1,45 @@
+{
+  "cwd": "/home/lullo/projects/onerag/one-rag-to-rule-them-all",
+  "session_id": "b2d4f6a8-1c3e-4a5b-8d7f-9e0a1b2c3d4e",
+  "model": {
+    "id": "claude-opus-5",
+    "display_name": "Opus 5"
+  },
+  "workspace": {
+    "current_dir": "/home/lullo/projects/onerag/one-rag-to-rule-them-all",
+    "project_dir": "/home/lullo/projects/onerag/one-rag-to-rule-them-all",
+    "added_dirs": [],
+    "git_worktree": "one-rag-to-rule-them-all",
+    "repo": {
+      "host": "github.com",
+      "owner": "Lullow",
+      "name": "onerag"
+    }
+  },
+  "version": "2.1.270",
+  "cost": {
+    "total_cost_usd": 1.02,
+    "total_duration_ms": 2280000,
+    "total_api_duration_ms": 301000
+  },
+  "context_window": {
+    "total_input_tokens": 88400,
+    "total_output_tokens": 950,
+    "context_window_size": 1000000,
+    "used_percentage": 9,
+    "remaining_percentage": 91,
+    "current_usage": {
+      "input_tokens": 1200,
+      "output_tokens": 950,
+      "cache_creation_input_tokens": 88,
+      "cache_read_input_tokens": 87112
+    }
+  },
+  "exceeds_200k_tokens": false,
+  "rate_limits": {
+    "seven_day": {
+      "used_percentage": 31,
+      "resets_at": 1789628400
+    }
+  }
+}

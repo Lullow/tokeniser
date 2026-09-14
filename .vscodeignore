@@ -3,6 +3,7 @@
 node_modules/**
 src/**
 test/**
+scripts/**
 docs/**
 coverage/**
 esbuild.mjs

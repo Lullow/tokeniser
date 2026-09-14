@@ -1,0 +1,1 @@
+{"session_id": "3f9a2c1e-7b4d-4e0a-9c55-1d2e8f6a7b90", "model": {"id": "claude-opus-5", "display_na

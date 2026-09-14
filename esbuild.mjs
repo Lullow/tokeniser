@@ -4,8 +4,11 @@ const watch = process.argv.includes("--watch");
 const production = process.argv.includes("--production");
 
 const ctx = await esbuild.context({
-  entryPoints: ["src/extension.ts"],
-  outfile: "dist/extension.js",
+  entryPoints: {
+    extension: "src/extension.ts",
+    collector: "src/collector/main.ts",
+  },
+  outdir: "dist",
   bundle: true,
   format: "cjs",
   platform: "node",

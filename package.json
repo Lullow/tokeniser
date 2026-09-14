@@ -21,6 +21,10 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test 'test/unit/**/*.test.ts'",
+    "test:collector": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test 'test/e2e/**/*.test.ts'",
+    "test": "npm run test:unit && npm run test:collector",
+    "connect": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/connect.ts",
     "vscode:prepublish": "node esbuild.mjs --production"
   },
   "devDependencies": {

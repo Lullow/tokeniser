@@ -1,0 +1,86 @@
+{
+  "cwd": "/home/lullo/projects/tokeniser",
+  "session_id": "3f9a2c1e-7b4d-4e0a-9c55-1d2e8f6a7b90",
+  "session_name": "Bygg insamlaren",
+  "prompt_id": "550e8400-e29b-41d4-a716-446655440000",
+  "transcript_path": "/home/lullo/.claude/projects/-home-lullo-projects-tokeniser/3f9a2c1e.jsonl",
+  "model": {
+    "id": "claude-opus-5",
+    "display_name": "Opus 5"
+  },
+  "workspace": {
+    "current_dir": "/home/lullo/projects/tokeniser",
+    "project_dir": "/home/lullo/projects/tokeniser",
+    "added_dirs": [],
+    "repo": {
+      "host": "github.com",
+      "owner": "Lullow",
+      "name": "tokeniser"
+    }
+  },
+  "version": "2.1.270",
+  "output_style": {
+    "name": "default"
+  },
+  "cost": {
+    "total_cost_usd": 4.1834,
+    "total_duration_ms": 5412000,
+    "total_api_duration_ms": 812300,
+    "total_lines_added": 312,
+    "total_lines_removed": 41
+  },
+  "context_window": {
+    "total_input_tokens": 214800,
+    "total_output_tokens": 1830,
+    "context_window_size": 1000000,
+    "used_percentage": 21,
+    "remaining_percentage": 79,
+    "current_usage": {
+      "input_tokens": 2140,
+      "output_tokens": 1830,
+      "cache_creation_input_tokens": 16400,
+      "cache_read_input_tokens": 196260
+    }
+  },
+  "exceeds_200k_tokens": true,
+  "prompt_cache": {
+    "warm": true,
+    "caching_observed": true,
+    "ttl": "1h",
+    "expires_at": 1789394880,
+    "requests": 48,
+    "misses": 1,
+    "expected_rebuilds": 0,
+    "hit_ratio": 0.93,
+    "cache_write_tokens": 412330,
+    "miss_recache_tokens": 180400,
+    "last_miss_at": 1789380480,
+    "last_miss_cause": {
+      "causes": ["ttl_expired_5m"]
+    },
+    "miss_causes": {
+      "ttl_expired_5m": 1
+    },
+    "recache_tokens_if_cold": 214800
+  },
+  "fast_mode": false,
+  "effort": {
+    "level": "xhigh"
+  },
+  "thinking": {
+    "enabled": true
+  },
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 64.2,
+      "resets_at": 1789398000
+    },
+    "seven_day": {
+      "used_percentage": 31,
+      "resets_at": 1789628400
+    }
+  },
+  "vim": {
+    "mode": "INSERT"
+  }
+}

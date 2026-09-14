@@ -1,6 +1,6 @@
 # Tokeniser – sammanfattning av grillningen
 
-**Status:** Designbeslut fattade och gemensam förståelse bekräftad (2026-09-14). Implementation inte godkänd.
+**Status:** Designbeslut fattade och gemensam förståelse bekräftad (2026-09-14). Skissen godkänd och insamlaren byggd samma dag, se avsnitt 12.
 **Datum:** 2026-09-14
 **Miljö vid undersökningen:** Claude Code 2.1.270 (WSL), VS Code 1.137, Node 24.
 
@@ -286,12 +286,16 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
 - Slutligt namn och beslut om publicering.
 - Utformning av agentgränssnittet, och exakt vilken data en agent får läsa.
 
-## 12. Nästa steg (kräver ditt uttryckliga godkännande)
-1. Byt namn på mappen `tokenizer` till `tokeniser`. Görs mellan sessioner, eftersom den här sessionen körs i mappen.
-2. `git init` och grundstruktur.
-3. Klickbar skiss, som du godkänner.
-4. Validera R4 och insamlaren mot riktig data från statusraden.
-5. Implementation enligt avsnitt 8.
+## 12. Nästa steg
+1. **Klart 2026-09-14:** mappen heter `tokeniser`.
+2. **Klart 2026-09-14:** `git init` och grundstruktur.
+3. **Godkänd 2026-09-14:** klickbar skiss i `docs/skiss/tokeniser-skiss.html`. Svar på skissens fyra frågor:
+   - förslaget ligger som en fällbar rad överst i vyn
+   - 5 h och vecka skiljs åt med färg och etikett, ringarna är lika stora
+   - statusraden visar en klocka när datan är "Äldre"
+   - bottenpanelen har tre kolumner: gränser, session och historik
+4. **Pågår:** insamlaren är byggd och testad 2026-09-14. Den ansluts med `npm run connect -- --apply`. R4 valideras när det finns några dagars riktig data.
+5. Implementation enligt avsnitt 8. Varje större del kräver fortfarande ditt godkännande.
 
 ---
 

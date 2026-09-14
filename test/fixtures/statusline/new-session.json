@@ -1,0 +1,41 @@
+{
+  "cwd": "/home/lullo/projects/sound-bot",
+  "session_id": "7c1e0b44-2f3a-4d8e-b1a9-5e6f7a8b9c0d",
+  "transcript_path": "/home/lullo/.claude/projects/-home-lullo-projects-sound-bot/7c1e0b44.jsonl",
+  "model": {
+    "id": "claude-sonnet-5",
+    "display_name": "Sonnet 5"
+  },
+  "workspace": {
+    "current_dir": "/home/lullo/projects/sound-bot",
+    "project_dir": "/home/lullo/projects/sound-bot",
+    "added_dirs": []
+  },
+  "version": "2.1.270",
+  "output_style": {
+    "name": "default"
+  },
+  "cost": {
+    "total_cost_usd": 0,
+    "total_duration_ms": 1200,
+    "total_api_duration_ms": 0,
+    "total_lines_added": 0,
+    "total_lines_removed": 0
+  },
+  "context_window": {
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "context_window_size": 1000000,
+    "used_percentage": null,
+    "remaining_percentage": null,
+    "current_usage": null
+  },
+  "exceeds_200k_tokens": false,
+  "fast_mode": false,
+  "effort": {
+    "level": "medium"
+  },
+  "thinking": {
+    "enabled": true
+  }
+}

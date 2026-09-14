@@ -1,0 +1,30 @@
+{
+  "session_id": "0e9d8c7b-6a5f-4e3d-2c1b-0a9f8e7d6c5b",
+  "session_name": "Ska aldrig sparas",
+  "model": "opus",
+  "workspace": {
+    "project_dir": "/home/lullo/projects/tokeniser",
+    "repo": {
+      "host": "github.com",
+      "owner": 42,
+      "name": "tokeniser"
+    }
+  },
+  "context_window": {
+    "context_window_size": 1000000,
+    "used_percentage": 140,
+    "current_usage": {
+      "input_tokens": 10
+    }
+  },
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": "64",
+      "resets_at": 1789398000
+    },
+    "seven_day": {
+      "used_percentage": 31,
+      "resets_at": -1
+    }
+  }
+}
