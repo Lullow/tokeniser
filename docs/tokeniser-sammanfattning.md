@@ -110,7 +110,7 @@ Projektet är både ett personligt verktyg och ett lärprojekt. Poängen är ock
 | Q10 | **Gränserna** tas från det senaste värdet i vilken session som helst. **Kontext och modell** tas från den senast uppdaterade sessionen i fönstrets projekt, med den senaste sessionen totalt som reserv. Visas med "+N andra aktiva sessioner". |
 | Q12 | **Posten "Utanför VS Code (app, webb, andra enheter)"** är härledd och märkt som uppskattning, se risk R4. Det finns ingen uppdateringsknapp, eftersom inget dokumenterat sätt att hämta färsk data finns. Tokeniser visar "uppdateras vid nästa svar i Claude Code". |
 | Q15 | **Projektidentitet:** git-repot (`host/owner/name`) när det finns, annars `workspace.project_dir`. Worktrees räknas till samma projekt, med worktree-namnet som extra etikett. |
-| Q16 | **Mätvärden sparas bara när de ändras.** Rådata sparas i 90 dagar, dagssummeringar tills du raderar dem. Det som **inte** sparas beskrivs i avsnitt 7. |
+| Q16 | **Mätvärden sparas bara när de ändras.** Rådata sparas i 90 dagar, dagssummeringar tills du raderar dem. Det som **inte** sparas beskrivs i avsnitt 7. **Dagssummor av tokens** är en undre gräns, eftersom statusraden bara ger det senaste anropet och uppdateringar inom 300 ms slås ihop. De märks alltid "uppskattning" (beslutat 2026-09-14). |
 | Q26 | **Kostnad visas inte för abonnenter** i första versionen. Värdet sparas ändå för eventuell framtida användning. |
 
 **De fyra tillstånden (Q7):**
@@ -300,6 +300,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
    - **Klart 2026-09-14:** repot finns privat på GitHub, så projekt identifieras via `github.com/Lullow/tokeniser`.
    - **Klart 2026-09-14:** inläsningen från JSONL till SQLite (punkt 3), med låsfil, läsläge per fil, omläsning av ersatta filer och sammanslagning när en mapp får en repo-identitet.
    - **Återstår för punkt 3:** dagssummeringar och rensning av rådata efter 90 dagar (Q16).
+   - **Klart 2026-09-14:** statusraden och snabbkortet (punkt 4), med alla fem lägen, de fyra datatillstånden, varnings- och felfärg, kontext från fönstrets projekt och prognos märkt uppskattning. Klick på statusraden och länken "Öppna Tokeniser" kommer med vyn.
 
 ---
 

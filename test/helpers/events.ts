@@ -11,6 +11,7 @@ export interface EventOptions {
   repo?: { host: string; owner: string; name: string } | null;
   gitWorktree?: string;
   five?: number;
+  fiveResets?: number;
   week?: number;
   context?: number;
 }
@@ -40,7 +41,7 @@ export function eventLine(o: EventOptions): string {
       },
       exceeds_200k_tokens: false,
       rate_limits: {
-        five_hour: { used_percentage: o.five ?? 17, resets_at: 1_789_428_600 },
+        five_hour: { used_percentage: o.five ?? 17, resets_at: o.fiveResets ?? 1_789_428_600 },
         seven_day: { used_percentage: o.week ?? 5, resets_at: 1_789_600_000 },
       },
       cost: { total_cost_usd: 1.5, total_duration_ms: 60_000, total_api_duration_ms: 20_000 },

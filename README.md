@@ -47,10 +47,20 @@ Skydd i korthet:
 - Raderna behandlas som opålitlig data och valideras igen. Text med kontrolltecken sparas inte.
 - Projekt identifieras via repot när det finns, annars via mappen. Får en mapp senare en repo-identitet slås historiken ihop.
 
+## I VS Code
+
+Starta en utvecklingsinstans med F5 ("Kör extension"). Extensionen körs inne i WSL och läser `~/.tokeniser`.
+
+- **Statusraden** visar förbrukat, till exempel `5h 64% · v 31%`. Välj läge med `tokeniser.statusBar.mode`: båda gränserna, bara 5 h, bara vecka, närmaste gräns eller kontext. Varningsfärgen börjar vid `tokeniser.statusBar.warningAt` (80) och felfärgen vid `tokeniser.statusBar.errorAt` (95).
+- **Datatillstånd:** en klocka visas när senaste värdet är äldre än 5 minuter, `↺` när gränsen har återställts och `–` när värdet saknas. Ett saknat värde visas aldrig som 0.
+- **Snabbkortet** visas när musen hålls över statusraden. Det har ringar för gränserna, tid till återställning, kontexten i fönstrets projekt, andra aktiva sessioner och en prognos märkt uppskattning.
+- Ett fönster i taget läser in nya händelser till indexet. Övriga fönster läser bara.
+
 ## Struktur
 
 ```
-src/extension.ts      ingång för VS Code
+src/extension.ts      ingång för VS Code: statusraden och snabbkortet
+src/status/           statusradens text, datatillstånd, prognos och snabbkort
 src/collector/        insamlaren: validering, statusrad och lagring
 src/connect/          plan, planhash, diff och återställning för settings.json
 src/index/            inläsning till SQLite: validering, projektidentitet, lås och läsläge
