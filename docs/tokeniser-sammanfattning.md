@@ -186,6 +186,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
 
 **Utanför hotmodellen:** processer som körs som din egen användare.
 **Framtid:** hotmodellen kan byggas ut, till exempel med signering av skriptet eller en granskning inför publicering.
+**Insamlaren:** vad den får ta emot och göra, och vad som upprätthåller varje löfte, står i [insamlarens säkerhetskontrakt](insamlarens-sakerhetskontrakt.md).
 
 ## 7. Integritet
 

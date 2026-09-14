@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -81,6 +81,49 @@ test("sparar inget innehåll från konversationen", () => {
   for (const forbidden of ["session_name", "Bygg insamlaren", "transcript_path", "prompt_id"]) {
     assert.ok(!saved.includes(forbidden), `${forbidden} får inte sparas`);
   }
+});
+
+test("osäker eller saknad lagring stoppar aldrig statusraden", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "tokeniser-cwd-"));
+  for (const args of [[`--home=${join(cwd, "saknas", ".tokeniser")}`], ["--home=relativ/.tokeniser"]]) {
+    const result = spawnSync(process.execPath, [bundle, ...args], { input: fixture("full.json"), encoding: "utf8", cwd, timeout: 5000 });
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, "");
+    assert.match(result.stdout, /ktx 21%/);
+  }
+  assert.deepEqual(readdirSync(cwd), []);
+
+  const home = tempHome();
+  const elsewhere = join(home, "..", "elsewhere");
+  mkdirSync(elsewhere, { mode: 0o700 });
+  rmSync(storeLayout(home).events, { recursive: true });
+  symlinkSync(elsewhere, storeLayout(home).events);
+  const result = run(fixture("full.json"), home);
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.match(result.stdout, /ktx 21%/);
+  assert.deepEqual(readdirSync(elsewhere), []);
+  assert.match(readFileSync(storeLayout(home).problems, "utf8"), /"unsafe_path"/);
+});
+
+test("stänger stdin aldrig: avslutas efter spärren med kod 0 och utan utdata", { timeout: 10_000 }, async () => {
+  const home = tempHome();
+  const child = spawn(process.execPath, [bundle, `--home=${home}`], { stdio: ["pipe", "pipe", "pipe"] });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  const start = performance.now();
+  const code = await new Promise<number | null>((resolve) => child.on("exit", resolve));
+  const elapsed = performance.now() - start;
+  assert.equal(code, 0);
+  assert.equal(stdout, "");
+  assert.equal(stderr, "");
+  assert.ok(elapsed >= 1900 && elapsed < 4000, `${elapsed.toFixed(0)} ms`);
 });
 
 test("det exakta statusradskommandot fungerar med behörighetsmodellen", () => {

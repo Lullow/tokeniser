@@ -36,6 +36,7 @@ Skydd i korthet:
 - `settings.json` skrivs atomärt via en temporär fil och avbryts om innehållet har ändrats sedan planen gjordes.
 - Frånkopplingen tar aldrig sökvägar från `connection.json`.
 - Insamlaren körs med `env -i` och Nodes behörighetsmodell: den får läsa sin egen fil och läsa och skriva i `events/` och `state/`. Det är skydd på djupet, inte en sandlåda. Behörighetsmodellen stoppar till exempel inte nätverk i Node 24.
+- Varje löfte och vad som upprätthåller det står i [docs/insamlarens-sakerhetskontrakt.md](docs/insamlarens-sakerhetskontrakt.md).
 
 ## Struktur
 
