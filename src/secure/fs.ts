@@ -256,3 +256,78 @@ export function removeFileChecked(path: string, expectedSha256: string, policy: 
   unlinkSync(path);
   syncDirectory(dirname(path));
 }
+
+export interface CheckedRange {
+  bytes: Buffer;
+  size: number;
+  dev: number;
+  ino: number;
+}
+
+/** Reads up to maxBytes starting at offset from a checked file; null when it does not exist. */
+export function readRangeChecked(path: string, privateFile: boolean, offset: number, maxBytes: number, uid = currentUid()): CheckedRange | null {
+  let fd: number;
+  try {
+    fd = openNoFollow(path, constants.O_RDONLY);
+  } catch (error) {
+    if (errnoCode(error) === "ENOENT") return null;
+    throw error;
+  }
+  try {
+    const st = assertOwnedFile(fd, path, uid, privateFile);
+    const length = Math.max(0, Math.min(st.size - offset, maxBytes));
+    const bytes = Buffer.alloc(length);
+    let total = 0;
+    while (total < length) {
+      const read = readSync(fd, bytes, total, length - total, offset + total);
+      if (read === 0) break;
+      total += read;
+    }
+    return { bytes: bytes.subarray(0, total), size: st.size, dev: st.dev, ino: st.ino };
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Creates an empty private file when missing, and checks the file either way. */
+export function ensurePrivateFile(path: string, uid = currentUid()): void {
+  const fd = openNoFollow(path, constants.O_RDONLY | constants.O_CREAT, 0o600);
+  try {
+    assertOwnedFile(fd, path, uid, true);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+export function assertPrivateFileIfExists(path: string, uid = currentUid()): void {
+  let fd: number;
+  try {
+    fd = openNoFollow(path, constants.O_RDONLY);
+  } catch (error) {
+    if (errnoCode(error) === "ENOENT") return;
+    throw error;
+  }
+  try {
+    assertOwnedFile(fd, path, uid, true);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Creates path with data only if nothing exists there. Returns false when something does. */
+export function tryCreatePrivateFile(path: string, data: Uint8Array, uid = currentUid()): boolean {
+  let fd: number;
+  try {
+    fd = openNoFollow(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
+  } catch (error) {
+    if (errnoCode(error) === "EEXIST") return false;
+    throw error;
+  }
+  try {
+    assertOwnedFile(fd, path, uid, true);
+    writeAll(fd, data);
+  } finally {
+    closeSync(fd);
+  }
+  return true;
+}

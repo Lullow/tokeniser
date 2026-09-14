@@ -38,15 +38,27 @@ Skydd i korthet:
 - Insamlaren körs med `env -i` och Nodes behörighetsmodell: den får läsa sin egen fil och läsa och skriva i `events/` och `state/`. Det är skydd på djupet, inte en sandlåda. Behörighetsmodellen stoppar till exempel inte nätverk i Node 24.
 - Varje löfte och vad som upprätthåller det står i [docs/insamlarens-sakerhetskontrakt.md](docs/insamlarens-sakerhetskontrakt.md).
 
+## Inläsning
+
+`npm run index` läser nya händelser från `~/.tokeniser/events/` till `~/.tokeniser/index.sqlite` och visar en sammanfattning. JSONL-filerna är sanningskällan. Indexet kan alltid byggas om med `npm run index -- --rebuild`.
+
+- Bara en process i taget läser in, via låsfilen `index.lock`. Varje händelse är unik per fil och byteposition, så inte ens samtidiga läsare utan lås ger dubbletter.
+- Läsläget sparas per fil. En halv rad väntar tills den är klar, och en ersatt eller trunkerad fil läses om från början.
+- Raderna behandlas som opålitlig data och valideras igen. Text med kontrolltecken sparas inte.
+- Projekt identifieras via repot när det finns, annars via mappen. Får en mapp senare en repo-identitet slås historiken ihop.
+
 ## Struktur
 
 ```
 src/extension.ts      ingång för VS Code
 src/collector/        insamlaren: validering, statusrad och lagring
 src/connect/          plan, planhash, diff och återställning för settings.json
+src/index/            inläsning till SQLite: validering, projektidentitet, lås och läsläge
 src/secure/           kontrollerad filhantering: mappkedja, ägare, rättigheter, atomära skrivningar
 scripts/connect.ts    utvecklingsskript för anslutning
-test/unit/            enhetstester mot exempel på statusradsdata
-test/e2e/             tester av den byggda insamlaren
-docs/                 beslut och skisser
+scripts/index.ts      utvecklingsskript för inläsning
+test/unit/            enhetstester
+test/e2e/             tester av byggd insamlare, anslutning och inläsning
+test/fixtures/        exempel från dokumentationen och anonymiserad riktig data
+docs/                 beslut, skisser och säkerhetskontrakt
 ```

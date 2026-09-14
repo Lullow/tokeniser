@@ -297,6 +297,9 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
    - bottenpanelen har tre kolumner: gränser, session och historik
 4. **Pågår:** insamlaren är byggd och testad 2026-09-14. Den ansluts med `npm run connect`, som visar planen och dess hash, följt av `npm run connect -- --apply=<hash>`. R4 valideras när det finns några dagars riktig data.
 5. Implementation enligt avsnitt 8. Varje större del kräver fortfarande ditt godkännande.
+   - **Klart 2026-09-14:** repot finns privat på GitHub, så projekt identifieras via `github.com/Lullow/tokeniser`.
+   - **Klart 2026-09-14:** inläsningen från JSONL till SQLite (punkt 3), med låsfil, läsläge per fil, omläsning av ersatta filer och sammanslagning när en mapp får en repo-identitet.
+   - **Återstår för punkt 3:** dagssummeringar och rensning av rådata efter 90 dagar (Q16).
 
 ---
 
