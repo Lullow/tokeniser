@@ -14,13 +14,16 @@ export function clockTime(ms: number): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** "kl. 17:00" the same day, otherwise "tor 17 sep kl. 01:00". */
+/**
+ * "kl. 17:00" the same day, otherwise "tor 17 sep kl. 01:00". Hard spaces keep the date and
+ * the time together, so a narrow column only breaks between them.
+ */
 export function moment(ms: number, now: number): string {
   const d = new Date(ms);
   const today = new Date(now);
   const sameDay = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-  const time = `kl. ${clockTime(ms)}`;
-  return sameDay ? time : `${WEEKDAYS[d.getDay()] ?? ""} ${d.getDate()} ${MONTHS[d.getMonth()] ?? ""} ${time}`;
+  const time = `kl.${NBSP}${clockTime(ms)}`;
+  return sameDay ? time : `${WEEKDAYS[d.getDay()] ?? ""}${NBSP}${d.getDate()}${NBSP}${MONTHS[d.getMonth()] ?? ""} ${time}`;
 }
 
 /** Rounded down: "under 1 min", "40 min", "1 h 52 min", "2 d 18 h". */

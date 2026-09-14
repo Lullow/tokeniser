@@ -14,11 +14,11 @@ test("snabbkortet visar värden, en statisk bild och prognos märkt uppskattning
   const md = buildHover(snap({ fivePoints: rising(58, [16, 11, 6, 1]) }), SETTINGS, NOW, "dark");
   assert.match(md, /^\*\*Tokeniser\*\* · tokeniser\n\n/);
   assert.match(md, /<img src="data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+" width="104" height="52" alt="">/);
-  assert.match(md, /5 h \*\*64\s%\*\* · återställs kl\. \d{2}:\d{2} \(om 2 h\)/);
+  assert.match(md, /5 h \*\*64\s%\*\* · återställs kl\.\s\d{2}:\d{2} \(om 2 h\)/);
   assert.match(md, /Vecka \*\*31\s%\*\*/);
   assert.match(md, /Kontext \*\*21\s%\*\* · 214\s800 av 1\s000\s000 tokens/);
   assert.match(md, /claude\\-opus\\-5 · xhigh/);
-  assert.match(md, /Prognos 5 h: når gränsen cirka kl\. \d{2}:\d{2} · \*uppskattning\*/);
+  assert.match(md, /Prognos 5 h: når gränsen cirka kl\.\s\d{2}:\d{2} · \*uppskattning\*/);
   assert.match(md, /Prognos vecka döljs: den kräver minst 3 mätningar under minst 20 h\./);
   assert.match(md, /\*Uppdateras vid nästa svar i Claude Code\.\* · \[Öppna Tokeniser\]\(command:tokeniser\.openView\)$/);
   assert.ok(!md.includes("<script"));

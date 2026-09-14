@@ -25,7 +25,7 @@ test("ringarna visar förbrukat, tid till återställning och tillstånd", () =>
   assert.equal(five.value, 64);
   assert.equal(five.pill, "Aktuell");
   assert.equal(five.level, "normal");
-  assert.match(five.lines[0] ?? "", /^återställs kl\. \d{2}:\d{2}$/);
+  assert.match(five.lines[0] ?? "", /^återställs kl\. \d{2}:\d{2}$/);
   assert.equal(five.lines[1], "om 2 h");
   assert.equal(week.center, "31 %");
   assert.equal(model(snap({ five: reading(85) })).limits.rings[0].level, "warning");
@@ -52,9 +52,14 @@ test("äldre, återställd och saknad data får egna tillstånd, aldrig 0 %", ()
 
 test("prognoser är märkta uppskattning när de visas, och posten utanför VS Code väntar på data", () => {
   const { forecasts, outside } = model(snap({ fivePoints: rising(58, [16, 11, 6, 1]) })).limits;
-  assert.match(forecasts[0]?.text ?? "", /^Når gränsen cirka kl\. \d{2}:\d{2}$/);
+  assert.equal(forecasts[0]?.label, "Prognos 5 h");
+  assert.match(forecasts[0]?.text ?? "", /^når gränsen cirka kl\. \d{2}:\d{2}$/);
   assert.equal(forecasts[0]?.estimated, true);
-  assert.deepEqual(forecasts[1], { label: "Vecka", text: "Prognos döljs: den kräver minst 3 mätningar under minst 20 h.", estimated: false });
+  assert.deepEqual(forecasts[1], {
+    label: "Prognos vecka",
+    text: "döljs – den kräver minst 3 mätningar under minst 20 h.",
+    estimated: false,
+  });
   assert.match(outside.text, /^Går inte att särskilja än/);
 });
 
@@ -111,7 +116,7 @@ test("förslag, senaste mätning och en modell som går att skicka till vyn", ()
     m.suggestions.map((s) => s.id),
     ["context"],
   );
-  assert.match(m.updated ?? "", /^Senaste mätning kl\. \d{2}:\d{2}$/);
+  assert.match(m.updated ?? "", /^Senaste mätning kl\. \d{2}:\d{2}$/);
   assert.deepEqual(JSON.parse(JSON.stringify(m)), m);
   assert.equal(model(snap({ unavailable: "Inte ansluten." })).unavailable, "Inte ansluten.");
 });

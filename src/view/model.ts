@@ -52,16 +52,17 @@ function ring(key: RingModel["key"], label: string, state: LimitState, settings:
   }
 }
 
-function forecastModel(label: string, result: Forecast, now: number): ForecastModel {
+function forecastModel(limit: string, result: Forecast, now: number): ForecastModel {
+  const label = `Prognos ${limit.toLowerCase()}`;
   switch (result.kind) {
     case "reaches":
-      return { label, text: `Når gränsen cirka ${moment(result.at, now)}`, estimated: true };
+      return { label, text: `når gränsen cirka ${moment(result.at, now)}`, estimated: true };
     case "lasts":
-      return { label, text: `Räcker till återställningen ${moment(result.resetsAt, now)}`, estimated: true };
+      return { label, text: `räcker till återställningen ${moment(result.resetsAt, now)}`, estimated: true };
     case "reached":
-      return { label, text: `Gränsen är nådd, återställs ${moment(result.resetsAt, now)}`, estimated: false };
+      return { label, text: `gränsen är nådd, återställs ${moment(result.resetsAt, now)}`, estimated: false };
     case "hidden":
-      return { label, text: `Prognos döljs: ${result.reason}.`, estimated: false };
+      return { label, text: `döljs – ${result.reason}.`, estimated: false };
   }
 }
 

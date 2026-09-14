@@ -21,7 +21,7 @@ test("tidsrymder avrundas nedåt till läsbara enheter", () => {
 
 test("klockslag samma dag, annars med veckodag och datum", () => {
   const now = new Date(2026, 8, 14, 15, 8).getTime();
-  assert.equal(moment(new Date(2026, 8, 14, 17, 0).getTime(), now), "kl. 17:00");
-  assert.equal(moment(new Date(2026, 8, 17, 1, 0).getTime(), now), "tor 17 sep kl. 01:00");
+  assert.equal(moment(new Date(2026, 8, 14, 17, 0).getTime(), now), "kl. 17:00");
+  assert.equal(moment(new Date(2026, 8, 17, 1, 0).getTime(), now), "tor 17 sep kl. 01:00");
   assert.equal(clockTime(new Date(2026, 8, 14, 9, 5).getTime()), "09:05");
 });
