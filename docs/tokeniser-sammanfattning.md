@@ -301,6 +301,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
    - **Klart 2026-09-14:** inläsningen från JSONL till SQLite (punkt 3), med låsfil, läsläge per fil, omläsning av ersatta filer och sammanslagning när en mapp får en repo-identitet.
    - **Återstår för punkt 3:** dagssummeringar och rensning av rådata efter 90 dagar (Q16).
    - **Klart 2026-09-14:** statusraden och snabbkortet (punkt 4), med alla fem lägen, de fyra datatillstånden, varnings- och felfärg, kontext från fönstrets projekt och prognos märkt uppskattning. Klick på statusraden och länken "Öppna Tokeniser" kommer med vyn.
+   - **Kontrollerat 2026-09-15 (acceptanskriterium 2):** statusraden visade 5 h 25 % och vecka 6 % från en mätning 00:08. `/usage` visade samtidigt 26 % och 7 %. Det är inom 1 procentenhet och alltså godkänt, men båda värdena låg en enhet lägre. Claude Code skickar heltal i statusraden, så skillnaden beror troligen på olika avrundning. Följs upp: blir skillnaden större än 1 procentenhet är kriteriet inte uppfyllt.
 
 ---
 
