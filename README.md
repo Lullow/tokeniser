@@ -53,14 +53,20 @@ Starta en utvecklingsinstans med F5 ("Kör extension"). Extensionen körs inne i
 
 - **Statusraden** visar förbrukat, till exempel `5h 64% · v 31%`. Välj läge med `tokeniser.statusBar.mode`: båda gränserna, bara 5 h, bara vecka, närmaste gräns eller kontext. Varningsfärgen börjar vid `tokeniser.statusBar.warningAt` (80) och felfärgen vid `tokeniser.statusBar.errorAt` (95).
 - **Datatillstånd:** en klocka visas när senaste värdet är äldre än 5 minuter, `↺` när gränsen har återställts och `–` när värdet saknas. Ett saknat värde visas aldrig som 0.
-- **Snabbkortet** visas när musen hålls över statusraden. Det har ringar för gränserna, tid till återställning, kontexten i fönstrets projekt, andra aktiva sessioner och en prognos märkt uppskattning.
+- **Snabbkortet** visas när musen hålls över statusraden. Det har ringar för gränserna, tid till återställning, kontexten i fönstrets projekt, andra aktiva sessioner, en prognos märkt uppskattning och länken "Öppna Tokeniser".
+- **Vyn** ligger i bottenpanelen bredvid Terminal. Klicka på Tokeniser i statusraden för att visa eller dölja den. Den har gränsringar, prognoser, kontextstapel, sessionens tokens, en kurva över 7 dagar, dagens projekt och förslag med kopieringsknapp. Tokens per dag och per session är uppskattningar.
+- **Högra sidopanelen:** högerklicka på fliken Tokeniser och välj att flytta den till det sekundära sidofältet. Layouten anpassar sig efter bredden.
+- **Förslaget om stor kontext** visas vid `tokeniser.suggestions.contextTokens` (200 000) eller `tokeniser.suggestions.contextPercent` (60), det som kommer först.
 - Ett fönster i taget läser in nya händelser till indexet. Övriga fönster läser bara.
+
+F5 kräver att mappen `tokeniser` är öppen som rotmapp i VS Code.
 
 ## Struktur
 
 ```
 src/extension.ts      ingång för VS Code: statusraden och snabbkortet
 src/status/           statusradens text, datatillstånd, prognos och snabbkort
+src/view/             vyn: data, modell, förslag, säkerhetsregler och webbvyn i src/view/webview/
 src/collector/        insamlaren: validering, statusrad och lagring
 src/connect/          plan, planhash, diff och återställning för settings.json
 src/index/            inläsning till SQLite: validering, projektidentitet, lås och läsläge

@@ -13,6 +13,9 @@ import {
 
 export type ThemeKind = "dark" | "light" | "highContrast" | "highContrastLight";
 
+/** The only command the hover may link to; the tooltip trusts nothing else. */
+export const OPEN_VIEW_COMMAND = "tokeniser.openView";
+
 interface Palette {
   fiveHour: string;
   week: string;
@@ -127,5 +130,5 @@ export function buildHover(snapshot: Snapshot, settings: StatusSettings, now: nu
     forecastLine("vecka", forecast(week, snapshot.week.points, FORECAST.week, now), now),
   ];
 
-  return [title, image, values.join("  \n"), forecasts.join("  \n"), "*Uppdateras vid nästa svar i Claude Code.*"].join("\n\n");
+  return [title, image, values.join("  \n"), forecasts.join("  \n"), `*Uppdateras vid nästa svar i Claude Code.* · [Öppna Tokeniser](command:${OPEN_VIEW_COMMAND})`].join("\n\n");
 }

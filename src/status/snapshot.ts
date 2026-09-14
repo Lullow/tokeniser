@@ -80,6 +80,7 @@ export function readSnapshot(db: DatabaseSync, workspaceFolders: readonly string
       id,
     );
     session = {
+      id,
       label: textOrNull(row.label),
       inWindowProject,
       modelId: textOrNull(latest?.modelId),

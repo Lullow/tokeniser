@@ -10,13 +10,39 @@
     "vscode": "^1.137.0"
   },
   "main": "./dist/extension.js",
-  "extensionKind": [
-    "workspace"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "extensionKind": ["workspace"],
+  "activationEvents": ["onStartupFinished"],
   "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "tokeniser",
+          "title": "Tokeniser",
+          "icon": "media/tokeniser.svg"
+        }
+      ]
+    },
+    "views": {
+      "tokeniser": [
+        {
+          "type": "webview",
+          "id": "tokeniser.view",
+          "name": "Tokeniser"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "tokeniser.openView",
+        "title": "Öppna vyn",
+        "category": "Tokeniser"
+      },
+      {
+        "command": "tokeniser.toggleView",
+        "title": "Visa eller dölj vyn",
+        "category": "Tokeniser"
+      }
+    ],
     "configuration": {
       "title": "Tokeniser",
       "properties": {
@@ -46,6 +72,20 @@
           "maximum": 100,
           "default": 95,
           "description": "Procent förbrukat där statusraden får felfärg."
+        },
+        "tokeniser.suggestions.contextPercent": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 60,
+          "description": "Förslaget om stor kontext visas när kontexten passerar den här andelen av fönstret, eller antalet tokens nedan, det som kommer först."
+        },
+        "tokeniser.suggestions.contextTokens": {
+          "type": "number",
+          "minimum": 1000,
+          "maximum": 10000000,
+          "default": 200000,
+          "description": "Förslaget om stor kontext visas när kontexten passerar så här många tokens, eller andelen ovan, det som kommer först."
         }
       }
     }
@@ -53,7 +93,7 @@
   "scripts": {
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/view/webview",
     "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --test 'test/unit/**/*.test.ts'",
     "test:e2e": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --test 'test/e2e/**/*.test.ts'",
     "test": "npm run test:unit && npm run test:e2e",

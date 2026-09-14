@@ -1,0 +1,536 @@
+/* Decision Q20: styled only with --vscode-* variables, so every theme works without extra colors. */
+
+body {
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.4;
+  background: transparent;
+}
+
+.root {
+  container-type: inline-size;
+  padding: 2px 16px 16px;
+}
+
+.topline {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 18px;
+}
+
+/* Tall and narrow first (side bar); three columns when the panel is wide. */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px 28px;
+  align-items: start;
+}
+
+.limits { order: 1; }
+.suggestions { order: 2; }
+.session { order: 3; }
+.history { order: 4; }
+
+@container (min-width: 760px) {
+  .grid {
+    grid-template-columns: minmax(210px, 0.85fr) minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+
+  .suggestions {
+    order: 0;
+    grid-column: 1 / -1;
+  }
+}
+
+.section {
+  min-width: 0;
+}
+
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.heading-extra {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: right;
+}
+
+.heading-sub {
+  margin-top: 14px;
+}
+
+.muted {
+  color: var(--vscode-descriptionForeground);
+}
+
+.small {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--vscode-contrastBorder, transparent);
+  border-radius: 3px;
+  font-size: 10.5px;
+  line-height: 16px;
+  white-space: nowrap;
+  vertical-align: 1px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+
+/* Rings */
+
+.rings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ring-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.ring {
+  width: 88px;
+  height: 88px;
+}
+
+.ring-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--vscode-foreground) 16%, transparent);
+  stroke-width: 7;
+}
+
+.ring-arc {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), stroke 0.3s;
+}
+
+.ring-fiveHour .ring-arc { stroke: var(--vscode-charts-blue); }
+.ring-week .ring-arc { stroke: var(--vscode-charts-purple); }
+.level-warning .ring-arc { stroke: var(--vscode-charts-orange); }
+.level-error .ring-arc { stroke: var(--vscode-charts-red); }
+.kind-stale .ring-arc { opacity: 0.55; }
+
+.kind-missing .ring-track {
+  stroke-dasharray: 1 6;
+  stroke-linecap: round;
+}
+
+.ring-number {
+  fill: var(--vscode-foreground);
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ring-word {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ring-label {
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+.ring-line,
+.ring-note {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-descriptionForeground);
+}
+
+.ring-note {
+  max-width: 24ch;
+}
+
+.pill {
+  margin-top: 4px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--vscode-foreground) 30%, transparent);
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+.pill-stale { border-style: dashed; }
+.pill-missing { border-style: dotted; }
+
+/* Decision Q19: a change of state fades in. */
+.changed {
+  animation: fade-in 0.3s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+.forecasts {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.forecast {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.forecast-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.outside {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--vscode-panel-border, transparent);
+  font-size: 12.5px;
+}
+
+.outside-title {
+  font-weight: 600;
+}
+
+/* Session */
+
+.detail {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+}
+
+.context-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.context-summary {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  position: relative;
+  height: 6px;
+  margin: 6px 0 20px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--vscode-foreground) 16%, transparent);
+}
+
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  background: var(--vscode-charts-blue);
+  transition: width 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.bar-missing {
+  height: 0;
+  margin-bottom: 8px;
+  border-top: 2px dotted color-mix(in srgb, var(--vscode-foreground) 30%, transparent);
+  background: none;
+}
+
+.tick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--vscode-descriptionForeground);
+}
+
+.tick-label {
+  position: absolute;
+  top: 13px;
+  left: 0;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-style: normal;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tile {
+  padding: 5px 9px 6px;
+  border: 1px solid var(--vscode-panel-border, transparent);
+  border-radius: 4px;
+  background: var(--vscode-editor-background);
+}
+
+.tile-label {
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tile-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* History */
+
+.curve {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.curve .gridline {
+  stroke: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+  stroke-width: 1;
+}
+
+.curve .axis {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 9.5px;
+}
+
+.curve .area {
+  fill: var(--vscode-charts-blue);
+  fill-opacity: 0.14;
+}
+
+.curve .line {
+  fill: none;
+  stroke: var(--vscode-charts-blue);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.curve .today {
+  stroke-dasharray: 3 3;
+}
+
+.curve .dot {
+  fill: var(--vscode-charts-blue);
+  stroke: var(--vscode-panel-background, var(--vscode-editor-background));
+  stroke-width: 2;
+}
+
+.projects {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.projects li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 12px;
+  font-size: 12.5px;
+}
+
+.project-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.project-detail {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+}
+
+.project-tokens {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Suggestions */
+
+.suggestions {
+  display: grid;
+  gap: 6px;
+}
+
+.suggestion {
+  border: 1px solid color-mix(in srgb, var(--vscode-charts-blue) 40%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--vscode-charts-blue) 7%, transparent);
+}
+
+.suggestion-head {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.suggestion-head:focus-visible,
+.button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.suggestion-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vscode-textLink-foreground);
+}
+
+.suggestion-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.chevron {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: var(--vscode-descriptionForeground);
+  stroke-width: 1.5;
+  transition: transform 0.2s ease;
+}
+
+.suggestion[data-open="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+/* Decision Q19: sections expand. */
+.suggestion-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.suggestion[data-open="true"] .suggestion-body {
+  grid-template-rows: 1fr;
+}
+
+.suggestion-inner {
+  overflow: hidden;
+}
+
+.suggestion dl {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 4px 14px;
+  margin: 0;
+  padding: 2px 10px 8px;
+  font-size: 12.5px;
+}
+
+.suggestion dt {
+  color: var(--vscode-descriptionForeground);
+}
+
+.suggestion dd {
+  margin: 0;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 10px 114px;
+}
+
+@container (max-width: 420px) {
+  .suggestion dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .buttons {
+    padding-left: 10px;
+  }
+}
+
+.button {
+  padding: 2px 10px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 2px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.button.secondary {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.button.secondary:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.unavailable {
+  max-width: 60ch;
+  padding-top: 8px;
+}
+
+body.vscode-high-contrast .tile,
+body.vscode-high-contrast .suggestion,
+body.vscode-high-contrast-light .tile,
+body.vscode-high-contrast-light .suggestion {
+  border-color: var(--vscode-contrastBorder);
+}
+
+/* Decision Q19: no motion with reduced motion. */
+body.vscode-reduce-motion *,
+body.vscode-reduce-motion *::before,
+body.vscode-reduce-motion *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

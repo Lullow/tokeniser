@@ -302,6 +302,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
    - **Återstår för punkt 3:** dagssummeringar och rensning av rådata efter 90 dagar (Q16).
    - **Klart 2026-09-14:** statusraden och snabbkortet (punkt 4), med alla fem lägen, de fyra datatillstånden, varnings- och felfärg, kontext från fönstrets projekt och prognos märkt uppskattning. Klick på statusraden och länken "Öppna Tokeniser" kommer med vyn.
    - **Kontrollerat 2026-09-15 (acceptanskriterium 2):** statusraden visade 5 h 25 % och vecka 6 % från en mätning 00:08. `/usage` visade samtidigt 26 % och 7 %. Det är inom 1 procentenhet och alltså godkänt, men båda värdena låg en enhet lägre. Claude Code skickar heltal i statusraden, så skillnaden beror troligen på olika avrundning. Följs upp: blir skillnaden större än 1 procentenhet är kriteriet inte uppfyllt.
+   - **Klart 2026-09-15:** vyn i bottenpanelen (punkt 5) enligt den godkända skissen, med gränsringar, de fyra tillstånden, prognoser, kontextstapel med båda trösklarna, sessionens tokens, kurva över 7 dagar, dagens projekt och förslag med kopieringsknapp. Klick på statusraden och länken i snabbkortet öppnar vyn. Tokens per dag och per session är uppskattningar. Posten "Utanför VS Code" visar "går inte att särskilja än" tills R4 är validerad. VS Code saknar API för att placera en vy i högra sidopanelen, så den placeringen görs med VS Codes egen flytt av vyn.
 
 ---
 

@@ -33,6 +33,7 @@ export function snap(o: SnapOptions = {}): Snapshot {
     fiveHour: { latest: o.five === undefined ? reading(64) : o.five, points: o.fivePoints ?? [] },
     week: { latest: o.week === undefined ? reading(31) : o.week, points: [] },
     session: {
+      id: "session-a",
       label: "tokeniser",
       inWindowProject: true,
       modelId: "claude-opus-5",

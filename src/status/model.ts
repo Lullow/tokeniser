@@ -46,6 +46,7 @@ export interface ContextReading {
 }
 
 export interface SessionInfo {
+  id: string;
   label: string | null;
   /** False when no session matched the window's folders and the latest session overall is used. */
   inWindowProject: boolean;
