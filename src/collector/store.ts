@@ -1,21 +1,46 @@
-import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import {
+  appendPrivateFile,
+  assertPrivateDir,
+  currentUid,
+  ensurePrivateDir,
+  readFileChecked,
+  replaceFileAtomic,
+  sha256,
+} from "../secure/fs.ts";
 import type { EventRecord } from "./record.ts";
 
-const DIR_MODE = 0o700;
-const FILE_MODE = 0o600;
+export const defaultHome = (): string => join(homedir(), ".tokeniser");
 
-export function tokeniserHome(env: NodeJS.ProcessEnv = process.env): string {
-  return env.TOKENISER_HOME || join(homedir(), ".tokeniser");
+export interface StoreLayout {
+  events: string;
+  state: string;
+  problems: string;
+}
+
+/** The collector writes only inside events/ and state/. */
+export function storeLayout(home: string): StoreLayout {
+  return {
+    events: join(home, "events"),
+    state: join(home, "state"),
+    problems: join(home, "state", "problems.jsonl"),
+  };
+}
+
+/** Creates the store. Done by the connect step; the collector itself never creates directories. */
+export function initStore(home: string, uid = currentUid()): void {
+  const store = storeLayout(home);
+  ensurePrivateDir(home, uid);
+  ensurePrivateDir(store.events, uid);
+  ensurePrivateDir(store.state, uid);
 }
 
 /** Event files rotate monthly, named by UTC month. */
 export function monthFile(home: string, epochMs: number): string {
   const d = new Date(epochMs);
   const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  return join(home, "events", `${d.getUTCFullYear()}-${month}.jsonl`);
+  return join(storeLayout(home).events, `${d.getUTCFullYear()}-${month}.jsonl`);
 }
 
 /**
@@ -24,37 +49,32 @@ export function monthFile(home: string, epochMs: number): string {
  */
 export function fingerprint(record: EventRecord): string {
   const { received_at: _receivedAt, cost, ...rest } = record;
-  const stable = { ...rest, cost: cost && { ...cost, total_duration_ms: undefined } };
-  return createHash("sha256").update(JSON.stringify(stable)).digest("hex");
+  return sha256(JSON.stringify({ ...rest, cost: cost && { ...cost, total_duration_ms: undefined } }));
 }
 
 export type WriteResult = "appended" | "unchanged";
 
-export function writeRecord(home: string, record: EventRecord): WriteResult {
-  const stateDir = join(home, "state");
-  const statePath = join(stateDir, `${record.session_id}.last`);
+export function writeRecord(home: string, record: EventRecord, uid = currentUid()): WriteResult {
+  const store = storeLayout(home);
+  assertPrivateDir(store.events, uid);
+  assertPrivateDir(store.state, uid);
+
+  const statePath = join(store.state, `${record.session_id}.last`);
   const print = fingerprint(record);
+  const last = readFileChecked(statePath, { private: true, maxBytes: 256 }, uid);
+  if (last !== null && last.bytes.toString("utf8") === print) return "unchanged";
 
-  let last: string | undefined;
-  try {
-    last = readFileSync(statePath, "utf8");
-  } catch {
-    last = undefined;
-  }
-  if (last === print) return "unchanged";
-
-  mkdirSync(join(home, "events"), { recursive: true, mode: DIR_MODE });
-  mkdirSync(stateDir, { recursive: true, mode: DIR_MODE });
-  appendFileSync(monthFile(home, record.received_at), JSON.stringify(record) + "\n", { mode: FILE_MODE });
-  writeFileSync(statePath, print, { mode: FILE_MODE });
+  appendPrivateFile(monthFile(home, record.received_at), JSON.stringify(record) + "\n", uid);
+  replaceFileAtomic(statePath, Buffer.from(print), { mode: 0o600 }, uid);
   return "appended";
 }
 
 /** Records that a run was rejected, without any of the input. Never throws. */
 export function logProblem(home: string, kind: string, epochMs: number): void {
   try {
-    mkdirSync(home, { recursive: true, mode: DIR_MODE });
-    appendFileSync(join(home, "problems.jsonl"), JSON.stringify({ at: epochMs, kind }) + "\n", { mode: FILE_MODE });
+    const store = storeLayout(home);
+    assertPrivateDir(store.state);
+    appendPrivateFile(store.problems, JSON.stringify({ at: epochMs, kind }) + "\n");
   } catch {
     // The status line must never fail because of Tokeniser.
   }

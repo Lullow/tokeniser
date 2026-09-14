@@ -1,29 +1,42 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { initStore, storeLayout } from "../../src/collector/store.ts";
+import { collectorLayout, statusLineCommand } from "../../src/connect/plan.ts";
 
-const collector = fileURLToPath(new URL("../../dist/collector.js", import.meta.url));
+const bundle = fileURLToPath(new URL("../../dist/collector.js", import.meta.url));
 const fixture = (name: string): string =>
   readFileSync(new URL(`../fixtures/statusline/${name}`, import.meta.url), "utf8");
-const tempHome = (): string => join(mkdtempSync(join(tmpdir(), "tokeniser-e2e-")), ".tokeniser");
+
+function tempHome(): string {
+  const home = join(mkdtempSync(join(tmpdir(), "tokeniser-e2e-")), ".tokeniser");
+  initStore(home);
+  return home;
+}
 
 function run(input: string, home: string, args: string[] = []) {
-  return spawnSync(process.execPath, [collector, ...args], {
-    input,
-    encoding: "utf8",
-    env: { ...process.env, TOKENISER_HOME: home },
-    timeout: 5000,
-  });
+  return spawnSync(process.execPath, [bundle, `--home=${home}`, ...args], { input, encoding: "utf8", timeout: 5000 });
 }
 
 function events(home: string): string {
-  const dir = join(home, "events");
+  const dir = storeLayout(home).events;
   return existsSync(dir) ? readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")).join("") : "";
 }
+
+/** Installs a collector file where the real command expects it and returns that command. */
+function installForCommand(home: string, source: string | Buffer): string {
+  const layout = collectorLayout(home);
+  mkdirSync(layout.bin, { mode: 0o700 });
+  writeFileSync(layout.collector, source, { mode: 0o600 });
+  return statusLineCommand(process.execPath, layout);
+}
+
+const runCommand = (command: string, input: string) =>
+  spawnSync("/bin/sh", ["-c", command], { input, encoding: "utf8", timeout: 5000 });
 
 test("skriver statusraden och en händelse", () => {
   const home = tempHome();
@@ -50,7 +63,7 @@ test("trasig JSON avbryter aldrig och skriver inget i terminalen", () => {
     assert.equal(result.stderr, "");
   }
   assert.equal(events(home), "");
-  const kinds = readFileSync(join(home, "problems.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l).kind);
+  const kinds = readFileSync(storeLayout(home).problems, "utf8").trim().split("\n").map((l) => JSON.parse(l).kind);
   assert.deepEqual(kinds, ["not_json", "empty", "not_object", "session_id"]);
 });
 
@@ -70,15 +83,68 @@ test("sparar inget innehåll från konversationen", () => {
   }
 });
 
+test("det exakta statusradskommandot fungerar med behörighetsmodellen", () => {
+  const home = tempHome();
+  const result = runCommand(installForCommand(home, readFileSync(bundle)), fixture("full.json"));
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.match(result.stdout, /ktx 21%/);
+  assert.equal(events(home).trim().split("\n").length, 1);
+});
+
+const HOSTILE = `
+const fs = require("node:fs");
+const path = require("node:path");
+const home = process.argv.find((a) => a.startsWith("--home=")).slice(7);
+const attempt = (fn) => { try { fn(); return "allowed"; } catch (e) { return e.code || e.message; } };
+process.stdout.write(JSON.stringify({
+  overwriteSelf: attempt(() => fs.writeFileSync(path.join(home, "bin", "collector.cjs"), "x")),
+  writeConnection: attempt(() => fs.writeFileSync(path.join(home, "connection.json"), "x")),
+  readBackup: attempt(() => fs.readFileSync(path.join(home, "backup", "settings.json"))),
+  writeOutside: attempt(() => fs.writeFileSync(path.join(home, "..", "outside.txt"), "x")),
+  spawn: attempt(() => require("node:child_process").spawnSync("/bin/true")),
+  environment: Object.keys(process.env).length,
+  appendEvents: attempt(() => fs.appendFileSync(path.join(home, "events", "probe.jsonl"), "x\\n")),
+}));
+`;
+
+test("behörighetsmodellen stoppar en ändrad insamlare från det viktigaste (skydd på djupet)", () => {
+  const home = tempHome();
+  mkdirSync(join(home, "backup"), { mode: 0o700 });
+  writeFileSync(join(home, "backup", "settings.json"), "{}", { mode: 0o600 });
+  const result = runCommand(installForCommand(home, HOSTILE), "");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    overwriteSelf: "ERR_ACCESS_DENIED",
+    writeConnection: "ERR_ACCESS_DENIED",
+    readBackup: "ERR_ACCESS_DENIED",
+    writeOutside: "ERR_ACCESS_DENIED",
+    spawn: "ERR_ACCESS_DENIED",
+    environment: 0,
+    appendEvents: "allowed",
+  });
+  assert.ok(!existsSync(join(home, "..", "outside.txt")));
+});
+
+test("bundlen använder bara tillåtna Node-moduler, ingen miljö och ingen dynamisk kod", () => {
+  const code = readFileSync(bundle, "utf8");
+  const modules = [...new Set([...code.matchAll(/require\("([^"]+)"\)/g)].map((m) => m[1]))].sort();
+  assert.deepEqual(modules, ["node:crypto", "node:fs", "node:os", "node:path"]);
+  for (const forbidden of [/\beval\(/, /new Function\b/, /\bimport\(/, /process\.env/, /process\.binding/, /child_process/, /node:(net|http|https|http2|dns|tls|dgram)/, /\bfetch\(/, /WebSocket/]) {
+    assert.doesNotMatch(code, forbidden);
+  }
+});
+
 test("körtid", (t) => {
   const home = tempHome();
   const input = fixture("full.json");
+  const command = installForCommand(home, readFileSync(bundle));
   const times: number[] = [];
   for (let i = 0; i < 20; i++) {
     const start = performance.now();
-    run(input, home);
+    runCommand(command, input);
     times.push(performance.now() - start);
   }
   times.sort((a, b) => a - b);
-  t.diagnostic(`median ${times[10]!.toFixed(0)} ms, p95 ${times[18]!.toFixed(0)} ms`);
+  t.diagnostic(`med behörighetsmodellen: median ${times[10]!.toFixed(0)} ms, p95 ${times[18]!.toFixed(0)} ms`);
 });

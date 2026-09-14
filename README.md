@@ -22,21 +22,28 @@ Starta extensionen i en utvecklingsinstans med F5 ("Kör extension").
 
 Claude Code kör insamlaren som statusrad. Den validerar JSON-datan, skriver en kort rad i terminalen (`5h 64% · v 31% · ktx 21%`) och lägger till en rad i `~/.tokeniser/events/ÅÅÅÅ-MM.jsonl` när mätvärdena har ändrats. Konversationsinnehåll, `session_name`, `transcript_path` och `prompt_id` sparas aldrig.
 
-Tills extensionen har en egen anslutningsknapp finns ett utvecklingsskript:
+Tills extensionen har en egen anslutningsknapp finns ett utvecklingsskript. Det visar först en plan och planens hash. `--apply` kräver just den hashen, som binder godkännandet till varje sökväg, rättighet, filhash och diffrad. Ändras något innan planen utförs avbryts körningen utan ändringar.
 
 ```sh
-npm run connect                          # visar ändringen i ~/.claude/settings.json, ändrar inget
-npm run connect -- --apply               # installerar insamlaren, sparar backup och skriver ändringen
-npm run connect -- --disconnect          # visar vad frånkopplingen gör
-npm run connect -- --disconnect --apply  # återställer settings.json
+npm run connect                                   # visar planen och dess hash, ändrar inget
+npm run connect -- --apply=<hash>                 # utför exakt den planen
+npm run connect -- --disconnect                   # visar planen för frånkoppling
+npm run connect -- --disconnect --apply=<hash>    # återställer settings.json och tar bort insamlaren
 ```
+
+Skydd i korthet:
+- Hela mappkedjan till `~/.tokeniser` och `~/.claude/settings.json` kontrolleras med `lstat`: inga symboliska länkar, rätt ägare, ingen annan kan skriva. Filer öppnas med `O_NOFOLLOW` och kontrolleras sedan på den öppnade filen, inklusive antal hårda länkar.
+- `settings.json` skrivs atomärt via en temporär fil och avbryts om innehållet har ändrats sedan planen gjordes.
+- Frånkopplingen tar aldrig sökvägar från `connection.json`.
+- Insamlaren körs med `env -i` och Nodes behörighetsmodell: den får läsa sin egen fil och läsa och skriva i `events/` och `state/`. Det är skydd på djupet, inte en sandlåda. Behörighetsmodellen stoppar till exempel inte nätverk i Node 24.
 
 ## Struktur
 
 ```
 src/extension.ts      ingång för VS Code
 src/collector/        insamlaren: validering, statusrad och lagring
-src/connect/          plan, diff och återställning för settings.json
+src/connect/          plan, planhash, diff och återställning för settings.json
+src/secure/           kontrollerad filhantering: mappkedja, ägare, rättigheter, atomära skrivningar
 scripts/connect.ts    utvecklingsskript för anslutning
 test/unit/            enhetstester mot exempel på statusradsdata
 test/e2e/             tester av den byggda insamlaren

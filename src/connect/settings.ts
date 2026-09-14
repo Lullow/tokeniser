@@ -1,38 +1,21 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "../secure/fs.ts";
 
-/** Saved in ~/.tokeniser/connection.json while Tokeniser owns the status line. */
-export interface ConnectionState {
-  settingsPath: string;
-  /** null when settings.json did not exist before connecting. */
-  backupPath: string | null;
-  writtenSha256: string;
-  command: string;
-  collectorSha256: string;
-  connectedAt: number;
-}
-
-export type ConnectPlan =
-  | { kind: "connect"; before: string | null; after: string }
+export type ConnectChange =
+  | { kind: "connect"; after: string }
   | { kind: "already-connected" }
   | { kind: "occupied"; existing: unknown };
 
-export type DisconnectPlan =
+export type SettingsDisconnect =
   /** settings.json is exactly what Tokeniser wrote: put the backup back byte for byte. */
-  | { kind: "restore-backup"; after: string | null }
+  | { change: "restore-backup"; after: string }
+  /** settings.json did not exist before connecting and is unchanged since. */
+  | { change: "delete" }
   /** settings.json changed after connecting: remove only Tokeniser's statusLine. */
-  | { kind: "remove-entry"; after: string }
-  | { kind: "not-connected" };
+  | { change: "remove-entry"; after: string }
+  | { change: "none" };
 
 type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
-
-export const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
-
-const shellQuote = (s: string): string => (/^[A-Za-z0-9_/.+-]+$/.test(s) ? s : `'${s.replaceAll("'", `'\\''`)}'`);
-
-export function statusLineCommand(nodePath: string, collectorPath: string): string {
-  return `${shellQuote(nodePath)} ${shellQuote(collectorPath)}`;
-}
 
 function detectIndent(text: string): string {
   return /\n([ \t]+)"/.exec(text)?.[1] ?? "  ";
@@ -48,10 +31,10 @@ function parseSettings(text: string): Json {
  * Adds a statusLine entry by inserting text before the closing brace, so every
  * existing byte of settings.json stays as it was.
  */
-export function planConnect(before: string | null, command: string): ConnectPlan {
+export function planConnect(before: string | null, command: string): ConnectChange {
   const entry = { type: "command", command };
   if (before === null || before.trim() === "") {
-    return { kind: "connect", before, after: JSON.stringify({ statusLine: entry }, null, 2) + "\n" };
+    return { kind: "connect", after: JSON.stringify({ statusLine: entry }, null, 2) + "\n" };
   }
 
   const settings = parseSettings(before);
@@ -71,19 +54,28 @@ export function planConnect(before: string | null, command: string): ConnectPlan
   if (!isObj(check.statusLine) || check.statusLine.command !== command) {
     throw new Error("Kunde inte lägga till statusLine utan att ändra resten av settings.json.");
   }
-  return { kind: "connect", before, after };
+  return { kind: "connect", after };
 }
 
-export function planDisconnect(current: string | null, state: ConnectionState, backup: string | null): DisconnectPlan {
-  if (current === null) return { kind: "not-connected" };
-  if (sha256(current) === state.writtenSha256) return { kind: "restore-backup", after: backup };
+export function planSettingsDisconnect(
+  current: string | null,
+  state: { command: string; settingsBeforeSha256: string | null; settingsAfterSha256: string },
+  backup: string | null,
+): SettingsDisconnect {
+  if (current === null) return { change: "none" };
+
+  if (sha256(current) === state.settingsAfterSha256) {
+    if (state.settingsBeforeSha256 === null) return { change: "delete" };
+    if (backup === null || sha256(backup) !== state.settingsBeforeSha256) {
+      throw new Error("Backupen stämmer inte med settings.json från före anslutningen.");
+    }
+    return { change: "restore-backup", after: backup };
+  }
 
   const settings = parseSettings(current);
-  if (!isObj(settings.statusLine) || settings.statusLine.command !== state.command) {
-    return { kind: "not-connected" };
-  }
+  if (!isObj(settings.statusLine) || settings.statusLine.command !== state.command) return { change: "none" };
   const { statusLine: _statusLine, ...rest } = settings;
-  return { kind: "remove-entry", after: JSON.stringify(rest, null, detectIndent(current)) + "\n" };
+  return { change: "remove-entry", after: JSON.stringify(rest, null, detectIndent(current)) + "\n" };
 }
 
 /** A single-hunk line diff; enough for one inserted or removed entry. */

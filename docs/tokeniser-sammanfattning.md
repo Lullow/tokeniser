@@ -294,7 +294,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
    - 5 h och vecka skiljs åt med färg och etikett, ringarna är lika stora
    - statusraden visar en klocka när datan är "Äldre"
    - bottenpanelen har tre kolumner: gränser, session och historik
-4. **Pågår:** insamlaren är byggd och testad 2026-09-14. Den ansluts med `npm run connect -- --apply`. R4 valideras när det finns några dagars riktig data.
+4. **Pågår:** insamlaren är byggd och testad 2026-09-14. Den ansluts med `npm run connect`, som visar planen och dess hash, följt av `npm run connect -- --apply=<hash>`. R4 valideras när det finns några dagars riktig data.
 5. Implementation enligt avsnitt 8. Varje större del kräver fortfarande ditt godkännande.
 
 ---
