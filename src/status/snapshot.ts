@@ -1,5 +1,5 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import { ACTIVE_SESSION_MS, FORECAST_WINDOW, type LimitReading, type Point, type Snapshot } from "./model.ts";
+import { ACTIVE_SESSION_MS, FORECAST, type LimitReading, type Point, type Snapshot } from "./model.ts";
 
 type Row = Record<string, unknown>;
 
@@ -30,7 +30,7 @@ function readLimit(db: DatabaseSync, which: "fiveHour" | "week"): { latest: Limi
     `SELECT received_at AS at, ${used} AS used FROM events
      WHERE ${used} IS NOT NULL AND ${resets} = ? AND received_at >= ? ORDER BY received_at`,
     resetsAt,
-    at - FORECAST_WINDOW[which],
+    at - FORECAST[which].windowMs,
   ).map((p) => ({ at: Number(p.at), used: Number(p.used) }));
   return { latest: { used: Number(row.used), resetsAt: resetsAt * 1000, measuredAt: at }, points };
 }

@@ -19,7 +19,7 @@ test("snabbkortet visar värden, en statisk bild och prognos märkt uppskattning
   assert.match(md, /Kontext \*\*21\s%\*\* · 214\s800 av 1\s000\s000 tokens/);
   assert.match(md, /claude\\-opus\\-5 · xhigh/);
   assert.match(md, /Prognos 5 h: når gränsen cirka kl\. \d{2}:\d{2} · \*uppskattning\*/);
-  assert.match(md, /Prognos vecka döljs: den kräver minst 3 mätningar under minst 10 minuter\./);
+  assert.match(md, /Prognos vecka döljs: den kräver minst 3 mätningar under minst 20 h\./);
   assert.match(md, /\*Uppdateras vid nästa svar i Claude Code\.\*$/);
   assert.ok(!md.includes("<script"));
 });

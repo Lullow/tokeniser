@@ -1,8 +1,8 @@
 import { duration, moment, percent, tokenCount } from "./format.ts";
 import {
   contextState,
+  FORECAST,
   forecast,
-  FORECAST_WINDOW,
   limitState,
   type ContextState,
   type Forecast,
@@ -123,8 +123,8 @@ export function buildHover(snapshot: Snapshot, settings: StatusSettings, now: nu
   if (sessionParts.length > 0) values.push(sessionParts.join(" · "));
 
   const forecasts = [
-    forecastLine("5 h", forecast(five, snapshot.fiveHour.points, FORECAST_WINDOW.fiveHour, now), now),
-    forecastLine("vecka", forecast(week, snapshot.week.points, FORECAST_WINDOW.week, now), now),
+    forecastLine("5 h", forecast(five, snapshot.fiveHour.points, FORECAST.fiveHour, now), now),
+    forecastLine("vecka", forecast(week, snapshot.week.points, FORECAST.week, now), now),
   ];
 
   return [title, image, values.join("  \n"), forecasts.join("  \n"), "*Uppdateras vid nästa svar i Claude Code.*"].join("\n\n");

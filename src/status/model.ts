@@ -4,11 +4,21 @@ import { duration } from "./format.ts";
 export const STALE_AFTER_MS = 5 * 60 * 1000;
 /** Other sessions updated this recently count as active. */
 export const ACTIVE_SESSION_MS = 15 * 60 * 1000;
-/** Decision Q14: the rate is measured over these windows. */
-export const FORECAST_WINDOW = { fiveHour: 30 * 60 * 1000, week: 24 * 60 * 60 * 1000 } as const;
+
+export interface ForecastWindow {
+  windowMs: number;
+  /** The measurements must span at least this long for the rate to mean anything. */
+  minSpanMs: number;
+}
+
+/** Decision Q14: the rate is measured over the recent window of the same limit window. */
+export const FORECAST = {
+  fiveHour: { windowMs: 30 * 60 * 1000, minSpanMs: 10 * 60 * 1000 },
+  /** Over a day, idle time must be part of the rate, so the measurements must span most of it. */
+  week: { windowMs: 24 * 60 * 60 * 1000, minSpanMs: 20 * 60 * 60 * 1000 },
+} as const satisfies Record<string, ForecastWindow>;
 
 const FORECAST_MIN_POINTS = 3;
-const FORECAST_MIN_SPAN_MS = 10 * 60 * 1000;
 const FIVE_MINUTES = 5 * 60 * 1000;
 
 export const NO_EVENTS = "Ingen data från Claude Code ännu.";
@@ -118,19 +128,19 @@ function slopePerMs(points: readonly Point[]): number {
 
 /**
  * Decision Q14: a least-squares rate over the recent window of the same limit window.
- * Needs at least 3 measurements spanning 10 minutes, and is hidden for old data.
+ * Needs at least 3 measurements spanning the window's minimum, and is hidden for old data.
  */
-export function forecast(state: LimitState, points: readonly Point[], windowMs: number, now: number): Forecast {
+export function forecast(state: LimitState, points: readonly Point[], window: ForecastWindow, now: number): Forecast {
   if (state.kind === "stale") return { kind: "hidden", reason: `senaste värdet är ${duration(state.age)} gammalt` };
   if (state.kind === "reset") return { kind: "hidden", reason: "ny siffra kommer vid nästa svar" };
   if (state.kind === "missing") return { kind: "hidden", reason: "det finns ingen mätning" };
   if (state.used >= 100) return { kind: "reached", resetsAt: state.resetsAt };
 
-  const recent = points.filter((p) => p.at >= now - windowMs && p.at <= now);
+  const recent = points.filter((p) => p.at >= now - window.windowMs && p.at <= now);
   const first = recent[0];
   const last = recent.at(-1);
-  if (first === undefined || last === undefined || recent.length < FORECAST_MIN_POINTS || last.at - first.at < FORECAST_MIN_SPAN_MS) {
-    return { kind: "hidden", reason: "den kräver minst 3 mätningar under minst 10 minuter" };
+  if (first === undefined || last === undefined || recent.length < FORECAST_MIN_POINTS || last.at - first.at < window.minSpanMs) {
+    return { kind: "hidden", reason: `den kräver minst ${FORECAST_MIN_POINTS} mätningar under minst ${duration(window.minSpanMs)}` };
   }
   const slope = slopePerMs(recent);
   if (slope <= 0) return { kind: "lasts", resetsAt: state.resetsAt };

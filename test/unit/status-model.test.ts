@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   contextState,
+  FORECAST,
   forecast,
-  FORECAST_WINDOW,
   limitState,
   NO_CONTEXT,
   NO_EVENTS,
@@ -16,9 +16,10 @@ import {
 } from "../../src/status/model.ts";
 import { MIN, NOW, reading, RESET, rising, SETTINGS, snap } from "../helpers/status.ts";
 
+const HOUR = 60 * MIN;
 const view = (s: Snapshot, settings: Partial<StatusSettings> = {}) => statusView(s, { ...SETTINGS, ...settings }, NOW);
 const fiveHour = (s: Snapshot): LimitState => limitState(s, "fiveHour", NOW);
-const predict = (state: LimitState, points: Point[]) => forecast(state, points, FORECAST_WINDOW.fiveHour, NOW);
+const predict = (state: LimitState, points: Point[]) => forecast(state, points, FORECAST.fiveHour, NOW);
 
 test("statusraden visar förbrukat för båda gränserna", () => {
   assert.equal(view(snap()).text, "$(dashboard) 5h 64% · v 31%");
@@ -93,4 +94,17 @@ test("prognosen döljs utan tillräckligt underlag och för gammal data", () => 
     reason: "senaste värdet är 40 min gammalt",
   });
   assert.equal(predict(fiveHour(snap({ five: reading(88, 1, NOW - 1) })), rising(58, [16, 11, 6, 1])).kind, "hidden");
+});
+
+test("veckoprognosen räknar in tid utan användning och döljs för bara några timmars arbete", () => {
+  const resetsAt = NOW + 60 * HOUR;
+  const week = limitState(snap({ week: reading(5, 1, resetsAt) }), "week", NOW);
+  const fewHoursOfWork = [3 * HOUR, 2.5 * HOUR, 2 * HOUR, 1.5 * HOUR, MIN].map((ago, i) => ({ at: NOW - ago, used: 1 + i }));
+  assert.deepEqual(forecast(week, fewHoursOfWork, FORECAST.week, NOW), {
+    kind: "hidden",
+    reason: "den kräver minst 3 mätningar under minst 20 h",
+  });
+
+  const dayWithNight = [23 * HOUR, 22 * HOUR, 2 * HOUR, MIN].map((ago, i) => ({ at: NOW - ago, used: 2 + i }));
+  assert.deepEqual(forecast(week, dayWithNight, FORECAST.week, NOW), { kind: "lasts", resetsAt });
 });
