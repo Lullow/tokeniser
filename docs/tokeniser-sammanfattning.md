@@ -349,6 +349,17 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - inställningarna, filtrerade på Tokeniser
 
      Exportfilen fick rättigheterna 0600 och en giltig JSON-rad per händelse. Själva raderingen, även acceptanskriterium 12, är testad mot tillfälliga mappar och inte mot riktig data.
+   - **Klart 2026-09-15:** CI och integrationstester, som är en del av punkt 10.
+     - **CI:** GitHub Actions kör typkontroll, enhetstester, tester från början till slut och integrationstester i VS Code 1.137.0 med xvfb. Det sker vid push till `main` och vid pull requests.
+       - Arbetsflödet har bara läsrättighet och inga hemligheter.
+       - Actions är låsta till exakta commits, och beroendena installeras med `npm ci --ignore-scripts`.
+       - Den första körningen tog 1 min 10 s och körde 146 enhetstester, 28 tester från början till slut och 3 integrationstester.
+     - **Integrationstesterna** startar VS Code med en tillfällig hemmapp och påhittad data. De kontrollerar att alla kommandon finns, att statusraden visar gränserna och att vyn öppnas med hälsoraden och dataraden, med webbvyns skript laddat under säkerhetsreglerna. Extensionen ger bara testerna ett API när VS Code kör i testläge.
+     - **Testet för noll nätverksanrop** (acceptanskriterium 12) är en tillåtelselista över modulerna i den byggda extensionen. Det kontrollerar också att den enda adressen i koden är SVG:s namnrymd. Det är en statisk kontroll och ser inte nätverk som skulle gå via VS Code själv.
+     - **Godkända avvikelser från punkt 10:**
+       - `@vscode/test-electron` används utan `@vscode/test-cli`, eftersom det ger färre beroenden.
+       - Ingen linter än. Typkontrollen har i stället `noUnusedLocals` och `noUnusedParameters`. En linter tas upp igen inför en publicering.
+     - **Kvar av punkt 10:** den lokala VSIX-filen (acceptanskriterium 16).
 
 ---
 
