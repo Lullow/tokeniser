@@ -247,7 +247,8 @@ function readRuntime(layout: CollectorLayout, state: ConnectionState, uid: numbe
   let commandMatches = false;
   if (nodePath !== null) {
     try {
-      commandMatches = statusLineCommand(nodePath, layout) === state.command;
+      // With or without the line in the terminal (decision Q17b).
+      commandMatches = [true, false].some((line) => statusLineCommand(nodePath, layout, { line }) === state.command);
     } catch {
       commandMatches = false;
     }

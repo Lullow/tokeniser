@@ -26,6 +26,28 @@ export function moment(ms: number, now: number): string {
   return sameDay ? time : `${WEEKDAYS[d.getDay()] ?? ""}${NBSP}${d.getDate()}${NBSP}${MONTHS[d.getMonth()] ?? ""} ${time}`;
 }
 
+/** "14 sep" this year, otherwise "14 sep 2025". Hard spaces keep the date together. */
+export function shortDate(ms: number, now: number): string {
+  const d = new Date(ms);
+  const year = d.getFullYear() === new Date(now).getFullYear() ? "" : `${NBSP}${d.getFullYear()}`;
+  return `${d.getDate()}${NBSP}${MONTHS[d.getMonth()] ?? ""}${year}`;
+}
+
+const upToOneDecimal = new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 1 });
+
+/** "850 B", "2 kB", "2,1 MB", counted in steps of 1 024. */
+export function fileSize(bytes: number): string {
+  const units = ["kB", "MB", "GB"];
+  if (bytes < 1024) return `${Math.round(Math.max(0, bytes))}${NBSP}B`;
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${upToOneDecimal.format(value)}${NBSP}${units[unit] ?? "GB"}`;
+}
+
 /** Rounded down: "under 1 min", "40 min", "1 h 52 min", "2 d 18 h". */
 export function duration(ms: number): string {
   const minutes = Math.floor(Math.max(0, ms) / 60_000);

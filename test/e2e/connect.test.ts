@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -149,4 +149,27 @@ test("saknad settings.json skapas och tas bort igen vid frånkoppling", () => {
   const off = connect(home, "--disconnect", `--apply=${hashFrom(dryOff.stdout)}`);
   assert.equal(off.status, 0, off.stderr);
   assert.ok(!existsSync(settingsOf(home)));
+});
+
+test("--no-line ger ett kommando som sparar men inte skriver någon rad i terminalen", () => {
+  const home = setup();
+  const dry = connect(home, "--no-line");
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /Terminalrad\n {2}av: /);
+  const applied = connect(home, "--no-line", `--apply=${hashFrom(dry.stdout)}`);
+  assert.equal(applied.status, 0, applied.stderr);
+
+  const layout = layoutOf(home);
+  const command = JSON.parse(readFileSync(settingsOf(home), "utf8")).statusLine.command;
+  assert.equal(command, statusLineCommand(realpathSync(process.execPath), layout, { line: false }));
+  const input = readFileSync(new URL("../fixtures/statusline/full.json", import.meta.url), "utf8");
+  const run = spawnSync("/bin/sh", ["-c", command], { input, encoding: "utf8", timeout: 5000 });
+  assert.equal(run.status, 0);
+  assert.equal(run.stdout, "");
+  assert.equal(run.stderr, "");
+  assert.ok(readdirSync(layout.events).some((name) => name.endsWith(".jsonl")), "händelsen sparas ändå");
+
+  const both = connect(home, "--disconnect", "--no-line");
+  assert.equal(both.status, 1);
+  assert.match(both.stderr, /--no-line gäller bara anslutning/);
 });

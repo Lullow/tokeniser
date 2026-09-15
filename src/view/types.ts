@@ -82,9 +82,16 @@ export interface HealthModel {
   checks: HealthCheck[];
 }
 
+export interface DataRowModel {
+  /** Plain text where `backticks` mark code. */
+  summary: string;
+}
+
 export interface ViewModel {
   unavailable: string | null;
   health: HealthModel | null;
+  /** Null when ~/.tokeniser does not exist. */
+  data: DataRowModel | null;
   updated: string | null;
   limits: {
     rings: [RingModel, RingModel];

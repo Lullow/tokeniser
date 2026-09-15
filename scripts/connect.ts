@@ -1,6 +1,7 @@
 // Development tool until the extension has its own "Anslut till Claude Code" button.
 //   node scripts/connect.ts                                 show the connect plan and its hash
 //   node scripts/connect.ts --apply=<hash>                  carry out exactly that plan
+//   node scripts/connect.ts --no-line [--apply=<hash>]      the same, without the line in Claude Code's status line
 //   node scripts/connect.ts --disconnect                    show the disconnect plan and its hash
 //   node scripts/connect.ts --disconnect --apply=<hash>
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
@@ -117,7 +118,7 @@ interface ConnectWork {
   nodeUserWritable: boolean;
 }
 
-function gatherConnect(): ConnectWork {
+function gatherConnect(noLine: boolean): ConnectWork {
   const directories = verifyTokeniserTree();
   if (exists(layout.connection)) {
     fail(`Tokeniser är redan ansluten enligt ${layout.connection}. Koppla från först med --disconnect.`);
@@ -133,7 +134,7 @@ function gatherConnect(): ConnectWork {
     return fail("dist/collector.js saknas. Kör npm run build först.");
   }
 
-  const command = statusLineCommand(nodePath, layout);
+  const command = statusLineCommand(nodePath, layout, { line: !noLine });
   const settings = readSettings();
   const change = planConnect(settings?.text ?? null, command);
   if (change.kind === "occupied") {
@@ -197,6 +198,11 @@ function printConnect(work: ConnectWork, hash: string): void {
     plan.node.path,
     `sha256 ${plan.node.sha256}`,
     ...(work.nodeUserWritable ? ["Obs: filen kan ändras av din användare, till exempel av nvm."] : []),
+  ]);
+  section("Terminalrad", [
+    plan.command.endsWith(" --no-line")
+      ? "av: insamlaren sparar men skriver ingen rad i Claude Codes statusrad"
+      : "på: insamlaren skriver en rad som 5h 64% · v 31% · ktx 42% i Claude Codes statusrad",
   ]);
   if (plan.backup) section("Backup av settings.json", [`${plan.backup.path} (${octal(plan.backup.mode)})`, `sha256 ${plan.backup.sha256}`]);
   section("Anslutningsuppgifter", [`${plan.connection.path} (${octal(plan.connection.mode)})`]);
@@ -350,12 +356,15 @@ function applyDisconnect(work: DisconnectWork): void {
 
 // ---------- Main ----------
 
-function parseArgs(args: string[]): { disconnect: boolean; approved: string | null } {
+function parseArgs(args: string[]): { disconnect: boolean; approved: string | null; noLine: boolean } {
   let disconnect = false;
   let approved: string | null = null;
+  let noLine = false;
   for (const arg of args) {
     if (arg === "--disconnect") {
       disconnect = true;
+    } else if (arg === "--no-line") {
+      noLine = true;
     } else if (arg.startsWith("--apply")) {
       const match = /^--apply=([0-9a-f]{64})$/.exec(arg);
       if (match === null) fail("--apply kräver planens fullständiga hash: --apply=<64 hexadecimala tecken>.");
@@ -364,11 +373,12 @@ function parseArgs(args: string[]): { disconnect: boolean; approved: string | nu
       fail(`Okänt argument: ${arg}`);
     }
   }
-  return { disconnect, approved };
+  if (disconnect && noLine) fail("--no-line gäller bara anslutning.");
+  return { disconnect, approved, noLine };
 }
 
 function main(): void {
-  const { disconnect, approved } = parseArgs(process.argv.slice(2));
+  const { disconnect, approved, noLine } = parseArgs(process.argv.slice(2));
   if (disconnect) {
     const work = gatherDisconnect();
     const hash = planHash(work.plan);
@@ -376,7 +386,7 @@ function main(): void {
     if (hash !== approved) fail(MISMATCH);
     return applyDisconnect(work);
   }
-  const work = gatherConnect();
+  const work = gatherConnect(noLine);
   const hash = planHash(work.plan);
   if (approved === null) return printConnect(work, hash);
   if (hash !== approved) fail(MISMATCH);

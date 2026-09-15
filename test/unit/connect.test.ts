@@ -150,6 +150,8 @@ test("insamlaren körs med tom miljö och snäva rättigheter", () => {
   ]);
   assert.ok(!argv.some((a) => /allow-(child-process|worker|addons|wasi|inspector)/.test(a)));
   assert.ok(!argv.some((a) => a === "--allow-fs-read=/home/lullo/.tokeniser" || a === "--allow-fs-write=/home/lullo/.tokeniser/"));
+  assert.equal(statusLineCommand("/usr/bin/node", LAYOUT, { line: false }), `${COMMAND} --no-line`);
+  assert.equal(statusLineCommand("/usr/bin/node", LAYOUT, { line: true }), COMMAND);
 });
 
 test("sökvägar med skaltecken eller .. avvisas", () => {

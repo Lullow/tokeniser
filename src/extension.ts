@@ -1,7 +1,10 @@
 import { existsSync, watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { DatabaseSync } from "node:sqlite";
 import * as vscode from "vscode";
+import { deleteData, deleteScope, exportEvents, readStorage, type StorageSummary } from "./data/store.ts";
+import { deleteDialog, deleteDone, exportDone, exportTitle } from "./data/text.ts";
 import { buildHealth, type HealthFacts } from "./health/model.ts";
 import { MANAGED_DIR, readHealthFacts, type HealthIndex } from "./health/read.ts";
 import { indexPaths, openIndex } from "./index/db.ts";
@@ -12,10 +15,13 @@ import { emptySnapshot, statusView, type Snapshot, type StatusMode } from "./sta
 import { readSnapshot } from "./status/snapshot.ts";
 import { emptyViewData, readViewData, type ViewData } from "./view/data.ts";
 import { buildViewModel, type ViewSettings } from "./view/model.ts";
-import { TokeniserViewProvider, VIEW_ID } from "./view/provider.ts";
+import { TokeniserViewProvider, VIEW_ID, type ViewAction } from "./view/provider.ts";
 
 const OPEN_COMMAND = "tokeniser.openView";
 const TOGGLE_COMMAND = "tokeniser.toggleView";
+const EXPORT_COMMAND = "tokeniser.exportData";
+const DELETE_COMMAND = "tokeniser.deleteData";
+const SETTINGS_COMMAND = "tokeniser.openSettings";
 const REFRESH_DEBOUNCE_MS = 300;
 /** Ages, resets and forecasts change with time alone; this re-renders without any file access. */
 const RENDER_EVERY_MS = 30_000;
@@ -60,6 +66,13 @@ function themeKind(): ThemeKind {
   }
 }
 
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+function isoDate(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const workspaceFolders = (): string[] => (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
 
 class Controller implements vscode.Disposable {
@@ -71,11 +84,16 @@ class Controller implements vscode.Disposable {
   private snapshot: Snapshot = emptySnapshot("Läser in data från Claude Code …");
   private viewData: ViewData = emptyViewData();
   private healthFacts: HealthFacts | null = null;
+  private storage: StorageSummary | null = null;
   private watcher: FSWatcher | undefined;
   private pending: NodeJS.Timeout | undefined;
 
   constructor(extensionUri: vscode.Uri) {
-    this.provider = new TokeniserViewProvider(extensionUri, () => this.scheduleRefresh());
+    this.provider = new TokeniserViewProvider(
+      extensionUri,
+      () => this.scheduleRefresh(),
+      (action) => void this.runAction(action),
+    );
     this.item.name = "Tokeniser";
     this.item.command = { command: TOGGLE_COMMAND, title: "Visa eller dölj Tokeniser" };
     this.render();
@@ -84,6 +102,9 @@ class Controller implements vscode.Disposable {
       vscode.window.registerWebviewViewProvider(VIEW_ID, this.provider),
       vscode.commands.registerCommand(OPEN_COMMAND, () => vscode.commands.executeCommand(`${VIEW_ID}.focus`)),
       vscode.commands.registerCommand(TOGGLE_COMMAND, () => this.toggleView()),
+      vscode.commands.registerCommand(EXPORT_COMMAND, () => this.runAction("export")),
+      vscode.commands.registerCommand(DELETE_COMMAND, () => this.runAction("delete")),
+      vscode.commands.registerCommand(SETTINGS_COMMAND, () => this.runAction("settings")),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration("tokeniser")) this.render();
       }),
@@ -133,6 +154,7 @@ class Controller implements vscode.Disposable {
         this.snapshot = emptySnapshot(NOT_CONNECTED);
         this.viewData = emptyViewData();
         this.healthFacts = null;
+        this.storage = this.readStorage(null);
       } else {
         this.ensureWatcher(eventsDir);
         const db = openIndex(this.home);
@@ -147,7 +169,10 @@ class Controller implements vscode.Disposable {
           }
           const now = Date.now();
           this.snapshot = readSnapshot(db, workspaceFolders(), now);
-          if (this.provider.visible) this.viewData = readViewData(db, this.snapshot.session?.id ?? null, now);
+          if (this.provider.visible) {
+            this.viewData = readViewData(db, this.snapshot.session?.id ?? null, now);
+            this.storage = this.readStorage(db);
+          }
           this.healthFacts = this.readHealth({ db }, this.snapshot.session?.inWindowProject ?? null);
         } finally {
           db.close();
@@ -158,6 +183,7 @@ class Controller implements vscode.Disposable {
       this.snapshot = emptySnapshot(`Kan inte läsa Tokenisers data: ${message}`);
       this.viewData = emptyViewData();
       this.healthFacts = this.readHealth({ error: message }, null);
+      this.storage = this.readStorage(null);
     }
     this.render();
   }
@@ -189,7 +215,79 @@ class Controller implements vscode.Disposable {
     tooltip.supportThemeIcons = true;
     tooltip.isTrusted = { enabledCommands: [OPEN_COMMAND] };
     this.item.tooltip = tooltip;
-    if (this.provider.visible) this.provider.update(buildViewModel(this.snapshot, this.viewData, settings, now, health));
+    if (this.provider.visible) this.provider.update(buildViewModel(this.snapshot, this.viewData, settings, now, health, this.storage));
+  }
+
+  private readStorage(db: DatabaseSync | null): StorageSummary | null {
+    try {
+      return readStorage(this.home, db);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Counts from the index when there is one, for dialogs opened from the command palette too. */
+  private freshStorage(): StorageSummary | null {
+    try {
+      if (!existsSync(join(this.home, "events"))) return readStorage(this.home, null);
+      const db = openIndex(this.home);
+      try {
+        return readStorage(this.home, db);
+      } finally {
+        db.close();
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  private async runAction(action: ViewAction): Promise<void> {
+    if (action === "export") await this.exportData();
+    else if (action === "delete") await this.deleteData();
+    else await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:lullo.tokeniser");
+  }
+
+  /** Point 8: the place is an active choice, and the notice afterwards says what the file holds and who can read it. */
+  private async exportData(): Promise<void> {
+    const storage = this.freshStorage();
+    if (storage === null || storage.events === 0) {
+      void vscode.window.showInformationMessage("Det finns ingen insamlad data att exportera.");
+      return;
+    }
+    const target = await vscode.window.showSaveDialog({
+      title: exportTitle(storage),
+      defaultUri: vscode.Uri.file(join(homedir(), `tokeniser-export-${isoDate(Date.now())}.jsonl`)),
+      filters: { "JSON Lines": ["jsonl"] },
+    });
+    if (target === undefined) return;
+    if (target.scheme !== "file") {
+      void vscode.window.showErrorMessage("Exporten kan bara sparas i WSL. Välj en sökväg som börjar med /.");
+      return;
+    }
+    try {
+      void vscode.window.showInformationMessage(exportDone(exportEvents(this.home, target.fsPath)));
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Exporten avbröts: ${messageOf(error)}`);
+    }
+  }
+
+  /** Point 8 and acceptance criterion 12: confirmed in VS Code's own modal dialog, never in the view. */
+  private async deleteData(): Promise<void> {
+    try {
+      const scope = deleteScope(this.home);
+      if (scope === null) {
+        void vscode.window.showInformationMessage("Det finns ingen data att radera.");
+        return;
+      }
+      const dialog = deleteDialog(scope, this.freshStorage(), Date.now());
+      const choice = await vscode.window.showWarningMessage(dialog.message, { modal: true, detail: dialog.detail }, dialog.confirm);
+      if (choice !== dialog.confirm) return;
+      void vscode.window.showInformationMessage(deleteDone(scope, deleteData(this.home, scope)));
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Raderingen avbröts: ${messageOf(error)}`);
+    } finally {
+      this.scheduleRefresh();
+    }
   }
 
   dispose(): void {

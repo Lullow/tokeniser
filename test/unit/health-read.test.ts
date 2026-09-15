@@ -205,6 +205,8 @@ test("en Node-fil som kan skrivas av andra, inte är körbar eller saknas upptä
   const connection = join(s.home, "connection.json");
   const state = JSON.parse(readFileSync(connection, "utf8"));
   writeFileSync(connection, JSON.stringify({ ...state, command: `${state.command} --no-line` }));
+  assert.equal(runtime().commandMatches, true, "utan terminalrad är kommandot fortfarande Tokenisers");
+  writeFileSync(connection, JSON.stringify({ ...state, command: `${state.command} --allow-child-process` }));
   assert.equal(runtime().commandMatches, false);
 });
 

@@ -41,6 +41,21 @@
         "command": "tokeniser.toggleView",
         "title": "Visa eller dölj vyn",
         "category": "Tokeniser"
+      },
+      {
+        "command": "tokeniser.exportData",
+        "title": "Exportera insamlad data",
+        "category": "Tokeniser"
+      },
+      {
+        "command": "tokeniser.deleteData",
+        "title": "Radera insamlad data",
+        "category": "Tokeniser"
+      },
+      {
+        "command": "tokeniser.openSettings",
+        "title": "Öppna inställningar",
+        "category": "Tokeniser"
       }
     ],
     "configuration": {

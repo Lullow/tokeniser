@@ -10,16 +10,22 @@ export const VIEW_ID = "tokeniser.view";
 /** The only text the view may put on the clipboard. Nothing is ever run. */
 const COPYABLE: readonly string[] = [...COPYABLE_COMMANDS, DISCONNECT_COMMAND];
 
+/** The data row's actions; each one is confirmed or chosen in VS Code itself, never in the view. */
+export type ViewAction = "export" | "delete" | "settings";
+const ACTIONS: readonly ViewAction[] = ["export", "delete", "settings"];
+
 /** Decision Q18: the view in the bottom panel, next to Terminal. */
 export class TokeniserViewProvider implements vscode.WebviewViewProvider {
   private readonly extensionUri: vscode.Uri;
   private readonly onVisible: () => void;
+  private readonly onAction: (action: ViewAction) => void;
   private view: vscode.WebviewView | undefined;
   private model: ViewModel | null = null;
 
-  constructor(extensionUri: vscode.Uri, onVisible: () => void) {
+  constructor(extensionUri: vscode.Uri, onVisible: () => void, onAction: (action: ViewAction) => void) {
     this.extensionUri = extensionUri;
     this.onVisible = onVisible;
+    this.onAction = onAction;
   }
 
   get visible(): boolean {
@@ -62,9 +68,14 @@ export class TokeniserViewProvider implements vscode.WebviewViewProvider {
   /** Messages from the webview are untrusted: only a known command may reach the clipboard. */
   private async receive(message: unknown): Promise<void> {
     if (typeof message !== "object" || message === null) return;
-    const { type, command } = message as { type?: unknown; command?: unknown };
+    const { type, command, action } = message as { type?: unknown; command?: unknown; action?: unknown };
     if (type === "ready") {
       this.post();
+      return;
+    }
+    if (type === "action") {
+      const known = ACTIONS.find((candidate) => candidate === action);
+      if (known !== undefined) this.onAction(known);
       return;
     }
     if (type === "copy" && typeof command === "string" && COPYABLE.includes(command)) {

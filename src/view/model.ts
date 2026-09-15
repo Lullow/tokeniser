@@ -10,6 +10,8 @@ import {
   type Snapshot,
   type StatusSettings,
 } from "../status/model.ts";
+import type { StorageSummary } from "../data/store.ts";
+import { storageSummary } from "../data/text.ts";
 import { dayStarts, type ViewData } from "./data.ts";
 import { buildSuggestions, type SuggestionSettings } from "./suggestions.ts";
 import type { ContextModel, ForecastModel, HealthModel, Level, RingModel, ViewModel } from "./types.ts";
@@ -86,7 +88,14 @@ function contextModel(state: ContextState, settings: SuggestionSettings): Contex
   };
 }
 
-export function buildViewModel(snapshot: Snapshot, data: ViewData, settings: ViewSettings, now: number, health: HealthModel | null = null): ViewModel {
+export function buildViewModel(
+  snapshot: Snapshot,
+  data: ViewData,
+  settings: ViewSettings,
+  now: number,
+  health: HealthModel | null = null,
+  storage: StorageSummary | null = null,
+): ViewModel {
   const five = limitState(snapshot, "fiveHour", now);
   const week = limitState(snapshot, "week", now);
   const context = contextState(snapshot, now);
@@ -106,6 +115,7 @@ export function buildViewModel(snapshot: Snapshot, data: ViewData, settings: Vie
   return {
     unavailable: snapshot.unavailable,
     health,
+    data: storage === null ? null : { summary: storageSummary(storage, now) },
     updated: measured.length > 0 ? `Senaste mätning ${moment(Math.max(...measured), now)}` : null,
     limits: {
       rings: [ring("fiveHour", "5 timmar", five, settings.status, now), ring("week", "Vecka", week, settings.status, now)],

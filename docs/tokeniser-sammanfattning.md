@@ -337,6 +337,18 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
        - CSV kommer i så fall med dagssummeringarna i Q16, med skydd mot formler i kalkylprogram.
      - **Terminalraden:** stängs av med `npm run connect -- --no-line`, och hälsokontrollen godkänner båda varianterna av kommandot.
      - **Dataraden:** ligger sist i vyn och visar antal händelser och storlek. Placeringen får ingen egen inställning, eftersom VS Code saknar API för att flytta en vy.
+   - **Klart 2026-09-15:** punkt 8. Det byggda:
+     - dataraden
+     - kommandona "Exportera insamlad data", "Radera insamlad data" och "Öppna inställningar"
+     - `npm run connect -- --no-line`
+
+     Kontrollerat med skärmbilder i WSL:
+     - spara-dialogen, som visar filsystemet i WSL med rubriken synlig
+     - aviseringen efter exporten
+     - raderingsdialogen, som avbröts
+     - inställningarna, filtrerade på Tokeniser
+
+     Exportfilen fick rättigheterna 0600 och en giltig JSON-rad per händelse. Själva raderingen, även acceptanskriterium 12, är testad mot tillfälliga mappar och inte mot riktig data.
 
 ---
 

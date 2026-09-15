@@ -26,6 +26,7 @@ Tills extensionen har en egen anslutningsknapp finns ett utvecklingsskript. Det 
 
 ```sh
 npm run connect                                   # visar planen och dess hash, ändrar inget
+npm run connect -- --no-line                      # samma plan, men utan rad i terminalens statusrad
 npm run connect -- --apply=<hash>                 # utför exakt den planen
 npm run connect -- --disconnect                   # visar planen för frånkoppling
 npm run connect -- --disconnect --apply=<hash>    # återställer settings.json och tar bort insamlaren
@@ -66,6 +67,9 @@ Starta en utvecklingsinstans med F5 ("Kör extension"). Extensionen körs inne i
   - om en annan inställning tar över eller stänger av statusraden
 
   Vid varning får statusraden en ikon, och snabbkortet får en rad med länken "Visa hälsa". Inställningsfiler läses bara för inspektion, och `~/.claude.json` läses aldrig, eftersom den innehåller inloggningen.
+- **Data** ligger sist i vyn. Raden visar antal händelser och storlek, följt av Exportera…, Radera… och Inställningar. Samma sak finns i kommandopaletten.
+  - **Exportera** sparar alla händelser som JSONL där du väljer. Aviseringen efteråt säger vad filen innehåller och vem som kan läsa den.
+  - **Radera** bekräftas i VS Codes dialog. När Tokeniser är ansluten tas insamlad data bort, annars hela `~/.tokeniser`. Bara filer som Tokeniser har skapat tas bort.
 - Ett fönster i taget läser in nya händelser till indexet. Övriga fönster läser bara.
 
 F5 kräver att mappen `tokeniser` är öppen som rotmapp i VS Code.
@@ -79,6 +83,7 @@ src/view/             vyn: data, modell, förslag, säkerhetsregler och webbvyn 
 src/collector/        insamlaren: validering, statusrad och lagring
 src/connect/          plan, planhash, diff och återställning för settings.json
 src/index/            inläsning till SQLite: validering, projektidentitet, lås och läsläge
+src/data/             export, radering och texterna i deras dialoger
 src/health/           hälsokontrollen: fakta från filer, inställningar och indexet, och raderna i vyn
 src/secure/           kontrollerad filhantering: mappkedja, ägare, rättigheter, atomära skrivningar
 scripts/connect.ts    utvecklingsskript för anslutning

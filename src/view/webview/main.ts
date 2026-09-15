@@ -1,5 +1,5 @@
 import { curveGeometry, ringDash, shortTokens } from "../geometry.ts";
-import type { ContextModel, DayModel, HealthMark, HealthModel, RingModel, Suggestion, ToWebview, ViewModel } from "../types.ts";
+import type { ContextModel, DataRowModel, DayModel, HealthMark, HealthModel, RingModel, Suggestion, ToWebview, ViewModel } from "../types.ts";
 
 interface VsCodeApi {
   postMessage(message: unknown): void;
@@ -407,6 +407,29 @@ function healthView(health: HealthModel): HTMLElement {
   return card;
 }
 
+const DATA_ACTIONS: [string, string][] = [
+  ["export", "Exportera…"],
+  ["delete", "Radera…"],
+  ["settings", "Inställningar"],
+];
+
+/** Point 8: last in the view, since deletion cannot be undone. The extension confirms every action. */
+function dataView(model: DataRowModel): HTMLElement {
+  const row = el("div", "data-row");
+  const summary = el("span", "data-summary");
+  summary.append(...richText(model.summary));
+  const actions = el("span", "data-actions");
+  for (const [action, label] of DATA_ACTIONS) {
+    const button = el("button", "data-action", label);
+    button.type = "button";
+    button.dataset.action = action;
+    button.dataset.focus = `data:${action}`;
+    actions.append(button);
+  }
+  row.append(el("span", "data-tag", "Data"), summary, actions);
+  return row;
+}
+
 function render(model: ViewModel): void {
   const before = previous;
   previous = model;
@@ -414,11 +437,12 @@ function render(model: ViewModel): void {
   const focusKey = active instanceof HTMLElement ? active.dataset.focus : undefined;
   const scroll = document.scrollingElement?.scrollTop ?? 0;
   const health = model.health === null ? [] : [healthView(model.health)];
+  const data = model.data === null ? [] : [dataView(model.data)];
 
   if (model.unavailable !== null) {
     const box = el("div", "unavailable");
     box.append(heading("Tokeniser"), el("p", "", model.unavailable));
-    root.replaceChildren(...health, box);
+    root.replaceChildren(...health, box, ...data);
     return;
   }
 
@@ -429,7 +453,7 @@ function render(model: ViewModel): void {
   const suggestions = suggestionsView(model.suggestions);
   if (suggestions !== null) grid.append(suggestions);
   grid.append(sessionView(model, before), historyView(model));
-  root.replaceChildren(top, ...health, grid);
+  root.replaceChildren(top, ...health, grid, ...data);
   drawCurve();
 
   if (focusKey !== undefined) root.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focusKey)}"]`)?.focus();
@@ -450,6 +474,8 @@ root.addEventListener("click", (event) => {
   const target = event.target instanceof Element ? event.target : null;
   const command = target?.closest<HTMLButtonElement>("button[data-copy]")?.dataset.copy;
   if (command !== undefined) vscode.postMessage({ type: "copy", command });
+  const action = target?.closest<HTMLButtonElement>("button[data-action]")?.dataset.action;
+  if (action !== undefined) vscode.postMessage({ type: "action", action });
 });
 
 window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
