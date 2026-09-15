@@ -1,10 +1,14 @@
 import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
+import { DISCONNECT_COMMAND } from "../health/model.ts";
 import { viewHtml } from "./html.ts";
 import { COPYABLE_COMMANDS } from "./suggestions.ts";
 import type { ToWebview, ViewModel } from "./types.ts";
 
 export const VIEW_ID = "tokeniser.view";
+
+/** The only text the view may put on the clipboard. Nothing is ever run. */
+const COPYABLE: readonly string[] = [...COPYABLE_COMMANDS, DISCONNECT_COMMAND];
 
 /** Decision Q18: the view in the bottom panel, next to Terminal. */
 export class TokeniserViewProvider implements vscode.WebviewViewProvider {
@@ -63,7 +67,7 @@ export class TokeniserViewProvider implements vscode.WebviewViewProvider {
       this.post();
       return;
     }
-    if (type === "copy" && typeof command === "string" && COPYABLE_COMMANDS.includes(command)) {
+    if (type === "copy" && typeof command === "string" && COPYABLE.includes(command)) {
       await vscode.env.clipboard.writeText(command);
       const reply: ToWebview = { type: "copied", command };
       void this.view?.webview.postMessage(reply);

@@ -312,6 +312,14 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - Den läser aldrig `~/.claude.json`, eftersom filen också innehåller inloggningen. Om en mapp är betrodd i Claude Code går därför inte att kontrollera, och inte heller `--settings`, inställningar från claude.ai, Windows-policy eller sessioner som startas i en undermapp.
      - Kontrollsumman upptäcker en ändrad insamlare men hindrar den inte. Det står i gränssnittet.
      - Node-filens hash (kontraktets lucka 7) blir ett eget steg efter hälsokontrollen, eftersom det ändrar formatet på `connection.json` och kräver ny anslutning.
+   - **Klart 2026-09-15:** hälsokontrollen (punkt 7) enligt skissen. Den körs vid varje uppdatering och kontrollerar:
+     - senaste data och vilken session den kom från
+     - fält som saknas och varför, avvisade körningar och ogiltiga fält senaste dygnet
+     - insamlarens kontrollsumma mot `connection.json`
+     - mappkedjan till `~/.tokeniser` (kontraktets lucka 2)
+     - `statusLine`, `disableAllHooks` och `allowManagedHooksOnly` i organisationens, användarens och fönstrets inställningar, i den ordning Claude Code använder dem
+
+     Inställningsfiler från organisationen och från repon läses bara för inspektion: inga symboliska länkar, inga FIFO-filer, högst 1 MiB och bara de tre nycklarna. En symbolisk länk högre upp i sökvägen, till exempel en `.claude`-mapp som är en länk, följs däremot. Det är godtaget eftersom inget från filen visas eller sparas.
 
 ---
 

@@ -1,3 +1,4 @@
+import type { HealthModel } from "../view/types.ts";
 import { duration, moment, percent, tokenCount } from "./format.ts";
 import {
   contextState,
@@ -105,9 +106,13 @@ function forecastLine(name: string, result: Forecast, now: number): string {
 }
 
 /** Decision Q18: the quick card shown when hovering the status bar item. Static by design. */
-export function buildHover(snapshot: Snapshot, settings: StatusSettings, now: number, theme: ThemeKind): string {
+export function buildHover(snapshot: Snapshot, settings: StatusSettings, now: number, theme: ThemeKind, health: HealthModel | null = null): string {
+  const healthLines =
+    health !== null && health.level === "warning"
+      ? [`$(warning) **Hälsa:** ${escapeMarkdown(health.title)} · [Visa hälsa](command:${OPEN_VIEW_COMMAND})`]
+      : [];
   if (snapshot.unavailable !== null) {
-    return ["**Tokeniser**", escapeMarkdown(snapshot.unavailable)].join("\n\n");
+    return ["**Tokeniser**", escapeMarkdown(snapshot.unavailable), ...healthLines].join("\n\n");
   }
 
   const five = limitState(snapshot, "fiveHour", now);
@@ -130,5 +135,5 @@ export function buildHover(snapshot: Snapshot, settings: StatusSettings, now: nu
     forecastLine("vecka", forecast(week, snapshot.week.points, FORECAST.week, now), now),
   ];
 
-  return [title, image, values.join("  \n"), forecasts.join("  \n"), `*Uppdateras vid nästa svar i Claude Code.* · [Öppna Tokeniser](command:${OPEN_VIEW_COMMAND})`].join("\n\n");
+  return [title, image, values.join("  \n"), ...healthLines, forecasts.join("  \n"), `*Uppdateras vid nästa svar i Claude Code.* · [Öppna Tokeniser](command:${OPEN_VIEW_COMMAND})`].join("\n\n");
 }

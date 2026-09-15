@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,7 @@ import {
   ChangedSinceReviewError,
   ensurePrivateDir,
   readFileChecked,
+  readRegularFile,
   removeFileChecked,
   replaceFileAtomic,
   sha256,
@@ -78,6 +80,24 @@ test("filkontroll avvisar symlänk, hård länk och för öppna rättigheter", (
   assert.throws(() => readFileChecked(open, PRIVATE), /0644/);
   assert.equal(readFileChecked(open, { private: false, maxBytes: 10 })?.mode, 0o644);
   assert.throws(() => readFileChecked(open, { private: false, maxBytes: 0 }), /större än/);
+});
+
+test("fil för inspektion: symlänk, FIFO och för stor fil avvisas, saknad fil ger null", () => {
+  const root = sandbox();
+  const file = join(root, "settings.json");
+  writeFileSync(file, "{}", { mode: 0o644 });
+  assert.equal(readRegularFile(file, 16)?.toString(), "{}");
+  assert.equal(readRegularFile(join(root, "saknas.json"), 16), null);
+  assert.equal(readRegularFile(join(file, "under-en-fil.json"), 16), null);
+  assert.throws(() => readRegularFile(file, 1), /större än 1 byte/);
+
+  symlinkSync(file, join(root, "link"));
+  assert.throws(() => readRegularFile(join(root, "link"), 16), /symbolisk länk/);
+
+  const fifo = join(root, "fifo");
+  execFileSync("mkfifo", [fifo]);
+  assert.throws(() => readRegularFile(fifo, 16), /inte en vanlig fil/);
+  assert.throws(() => readRegularFile(root, 16), /inte en vanlig fil/);
 });
 
 test("tillägg genom en hård länk avvisas och målet lämnas orört", () => {

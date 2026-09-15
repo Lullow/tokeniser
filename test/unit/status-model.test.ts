@@ -14,7 +14,7 @@ import {
   type Snapshot,
   type StatusSettings,
 } from "../../src/status/model.ts";
-import { MIN, NOW, reading, RESET, rising, SETTINGS, snap } from "../helpers/status.ts";
+import { HEALTH_WARNING, MIN, NOW, reading, RESET, rising, SETTINGS, snap } from "../helpers/status.ts";
 
 const HOUR = 60 * MIN;
 const view = (s: Snapshot, settings: Partial<StatusSettings> = {}) => statusView(s, { ...SETTINGS, ...settings }, NOW);
@@ -25,6 +25,18 @@ test("statusraden visar förbrukat för båda gränserna", () => {
   assert.equal(view(snap()).text, "$(dashboard) 5h 64% · v 31%");
   assert.equal(view(snap()).level, null);
   assert.equal(view(snap()).accessibleLabel, "Tokeniser. 5 timmar: 64 procent förbrukat. Vecka: 31 procent förbrukat.");
+});
+
+test("en hälsovarning ger statusraden en ikon men ingen bakgrundsfärg", () => {
+  const warned = statusView(snap(), SETTINGS, NOW, HEALTH_WARNING);
+  assert.equal(warned.text, "$(dashboard) $(warning) 5h 64% · v 31%");
+  assert.equal(warned.level, null);
+  assert.equal(
+    warned.accessibleLabel,
+    "Tokeniser. Hälsovarning: Insamlaren har ändrats sedan anslutningen. 5 timmar: 64 procent förbrukat. Vecka: 31 procent förbrukat.",
+  );
+  assert.equal(statusView(snap({ five: reading(64, 40) }), { ...SETTINGS, mode: "context" }, NOW, HEALTH_WARNING).text, "$(dashboard) $(warning) ktx 21%");
+  assert.equal(statusView(snap(), SETTINGS, NOW, { ...HEALTH_WARNING, level: "ok", title: "Allt i ordning" }).text, "$(dashboard) 5h 64% · v 31%");
 });
 
 test("data äldre än 5 minuter får en klocka och behåller värdet", () => {

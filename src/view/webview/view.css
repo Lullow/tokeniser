@@ -511,10 +511,186 @@ body {
   padding-top: 8px;
 }
 
+/* Health: always first in the view, open by default only when something is wrong. */
+
+.health {
+  margin: 2px 0 14px;
+  border: 1px solid color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
+  border-radius: 4px;
+}
+
+.health.level-warning {
+  border-color: color-mix(in srgb, var(--vscode-editorWarning-foreground) 50%, transparent);
+  background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 8%, transparent);
+}
+
+.health-head {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.health-head:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.health-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.health.level-ok .health-tag,
+.mark-ok > .health-mark {
+  color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+}
+
+.health.level-warning .health-tag,
+.mark-warning > .health-mark {
+  color: var(--vscode-editorWarning-foreground);
+}
+
+.mark-unknown > .health-mark,
+.mark-unchecked > .health-mark {
+  color: var(--vscode-descriptionForeground);
+}
+
+.health-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-summary {
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-descriptionForeground);
+}
+
+.health[data-open="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.health-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.health[data-open="true"] .health-body {
+  grid-template-rows: 1fr;
+}
+
+.health-inner {
+  overflow: hidden;
+}
+
+.health-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 2px 10px 10px;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.health-check {
+  display: grid;
+  grid-template-columns: 14px 170px minmax(0, 1fr);
+  gap: 1px 10px;
+  align-items: start;
+}
+
+.health-mark {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.health-check > .health-mark {
+  margin-top: 2px;
+}
+
+.health-mark .dashed {
+  stroke-dasharray: 2 2;
+}
+
+.health-label {
+  font-weight: 600;
+}
+
+.health-state {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+}
+
+.health-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.health-detail code {
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  background: var(--vscode-textCodeBlock-background);
+}
+
+.health-action {
+  margin-top: 3px;
+}
+
+.health-action-label {
+  font-weight: 600;
+}
+
+.health-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+@container (max-width: 520px) {
+  .health-summary {
+    display: none;
+  }
+
+  .health-check {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  .health-detail {
+    grid-column: 2;
+  }
+}
+
 body.vscode-high-contrast .tile,
 body.vscode-high-contrast .suggestion,
+body.vscode-high-contrast .health,
 body.vscode-high-contrast-light .tile,
-body.vscode-high-contrast-light .suggestion {
+body.vscode-high-contrast-light .suggestion,
+body.vscode-high-contrast-light .health {
   border-color: var(--vscode-contrastBorder);
 }
 

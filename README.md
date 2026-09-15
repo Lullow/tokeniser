@@ -57,6 +57,14 @@ Starta en utvecklingsinstans med F5 ("Kör extension"). Extensionen körs inne i
 - **Vyn** ligger i bottenpanelen bredvid Terminal. Klicka på Tokeniser i statusraden för att visa eller dölja den. Den har gränsringar, prognoser, kontextstapel, sessionens tokens, en kurva över 7 dagar, dagens projekt och förslag med kopieringsknapp. Tokens per dag och per session är uppskattningar.
 - **Högra sidopanelen:** högerklicka på fliken Tokeniser och välj att flytta den till det sekundära sidofältet. Layouten anpassar sig efter bredden.
 - **Förslaget om stor kontext** visas vid `tokeniser.suggestions.contextTokens` (200 000) eller `tokeniser.suggestions.contextPercent` (60), det som kommer först.
+- **Hälsa** ligger överst i vyn och är utfälld bara när något är fel. Den visar:
+  - senaste data
+  - fält som saknas och varför
+  - om insamlaren har ändrats
+  - om Tokenisers mappar är skyddade
+  - om en annan inställning tar över eller stänger av statusraden
+
+  Vid varning får statusraden en ikon, och snabbkortet får en rad med länken "Visa hälsa". Inställningsfiler läses bara för inspektion, och `~/.claude.json` läses aldrig, eftersom den innehåller inloggningen.
 - Ett fönster i taget läser in nya händelser till indexet. Övriga fönster läser bara.
 
 F5 kräver att mappen `tokeniser` är öppen som rotmapp i VS Code.
@@ -70,6 +78,7 @@ src/view/             vyn: data, modell, förslag, säkerhetsregler och webbvyn 
 src/collector/        insamlaren: validering, statusrad och lagring
 src/connect/          plan, planhash, diff och återställning för settings.json
 src/index/            inläsning till SQLite: validering, projektidentitet, lås och läsläge
+src/health/           hälsokontrollen: fakta från filer, inställningar och indexet, och raderna i vyn
 src/secure/           kontrollerad filhantering: mappkedja, ägare, rättigheter, atomära skrivningar
 scripts/connect.ts    utvecklingsskript för anslutning
 scripts/index.ts      utvecklingsskript för inläsning

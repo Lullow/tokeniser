@@ -1,4 +1,12 @@
 import type { LimitReading, Point, Snapshot, StatusSettings } from "../../src/status/model.ts";
+import type { HealthModel } from "../../src/view/types.ts";
+
+export const HEALTH_WARNING: HealthModel = {
+  level: "warning",
+  title: "Insamlaren har ändrats sedan anslutningen",
+  summary: "1 varning · kontrollerat kl. 13:00",
+  checks: [],
+};
 
 export const MIN = 60_000;
 /** 13:00 UTC, on a five-minute boundary in every time zone with whole-hour offsets. */

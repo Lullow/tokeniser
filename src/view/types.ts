@@ -60,8 +60,31 @@ export interface Suggestion {
   commands: string[];
 }
 
+/** The health check's own states, separate from the four data states. */
+export type HealthMark = "ok" | "warning" | "unknown" | "unchecked";
+
+export interface HealthCheck {
+  id: string;
+  label: string;
+  mark: HealthMark;
+  /** The mark in words, so a state never depends on color alone. */
+  state: string;
+  /** Plain text where `backticks` mark code. */
+  detail: string;
+  action: string | null;
+  command: string | null;
+}
+
+export interface HealthModel {
+  level: "ok" | "warning";
+  title: string;
+  summary: string;
+  checks: HealthCheck[];
+}
+
 export interface ViewModel {
   unavailable: string | null;
+  health: HealthModel | null;
   updated: string | null;
   limits: {
     rings: [RingModel, RingModel];

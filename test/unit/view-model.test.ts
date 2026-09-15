@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { NO_LIMIT } from "../../src/status/model.ts";
 import type { ViewData } from "../../src/view/data.ts";
 import { buildViewModel, type ViewSettings } from "../../src/view/model.ts";
-import { MIN, NOW, reading, rising, SETTINGS, snap } from "../helpers/status.ts";
+import { HEALTH_WARNING, MIN, NOW, reading, rising, SETTINGS, snap } from "../helpers/status.ts";
 
 const DAY = 24 * 60 * MIN;
 const VIEW_SETTINGS: ViewSettings = { status: SETTINGS, suggestions: { contextPercent: 60, contextTokens: 200_000 } };
@@ -119,4 +119,6 @@ test("förslag, senaste mätning och en modell som går att skicka till vyn", ()
   assert.match(m.updated ?? "", /^Senaste mätning kl\. \d{2}:\d{2}$/);
   assert.deepEqual(JSON.parse(JSON.stringify(m)), m);
   assert.equal(model(snap({ unavailable: "Inte ansluten." })).unavailable, "Inte ansluten.");
+  assert.equal(m.health, null);
+  assert.equal(buildViewModel(snap(), DATA, VIEW_SETTINGS, NOW, HEALTH_WARNING).health, HEALTH_WARNING);
 });

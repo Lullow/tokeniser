@@ -1,3 +1,4 @@
+import type { HealthModel } from "../view/types.ts";
 import { duration } from "./format.ts";
 
 /** Decision Q7: a value older than this is shown as "Äldre". */
@@ -190,18 +191,24 @@ function describeContext(state: ContextState): string {
   return `Kontext: ${Math.round(state.usedPct)} procent${age}`;
 }
 
-/** Decision Q8: the status bar shows consumed, never remaining, in the chosen mode. */
-export function statusView(snapshot: Snapshot, settings: StatusSettings, now: number): StatusView {
+/**
+ * Decision Q8: the status bar shows consumed, never remaining, in the chosen mode. A health
+ * warning adds an icon but never a background, since the warning color already means 80 %.
+ */
+export function statusView(snapshot: Snapshot, settings: StatusSettings, now: number, health: HealthModel | null = null): StatusView {
   const five = limitState(snapshot, "fiveHour", now);
   const week = limitState(snapshot, "week", now);
+  const warned = health !== null && health.level === "warning";
+  const icon = warned ? "$(dashboard) $(warning)" : "$(dashboard)";
+  const healthLabel = health !== null && warned ? ` Hälsovarning: ${health.title}.` : "";
 
   if (settings.mode === "context") {
     const context = contextState(snapshot, now);
     const token = context.kind === "missing" ? "ktx –" : `ktx ${Math.round(context.usedPct)}%`;
     return {
-      text: `$(dashboard)${context.kind === "stale" ? " $(history)" : ""} ${token}`,
+      text: `${icon}${context.kind === "stale" ? " $(history)" : ""} ${token}`,
       level: null,
-      accessibleLabel: `Tokeniser. ${describeContext(context)}.`,
+      accessibleLabel: `Tokeniser.${healthLabel} ${describeContext(context)}.`,
     };
   }
 
@@ -218,8 +225,8 @@ export function statusView(snapshot: Snapshot, settings: StatusSettings, now: nu
   const level = highest >= settings.errorAt ? "error" : highest >= settings.warningAt ? "warning" : null;
   const stale = states.some((s) => s.kind === "stale");
   return {
-    text: `$(dashboard)${stale ? " $(history)" : ""} ${shown.map(([prefix, , state]) => limitToken(prefix, state)).join(" · ")}`,
+    text: `${icon}${stale ? " $(history)" : ""} ${shown.map(([prefix, , state]) => limitToken(prefix, state)).join(" · ")}`,
     level,
-    accessibleLabel: `Tokeniser. ${shown.map(([, name, state]) => describeLimit(name, state)).join(". ")}.`,
+    accessibleLabel: `Tokeniser.${healthLabel} ${shown.map(([, name, state]) => describeLimit(name, state)).join(". ")}.`,
   };
 }

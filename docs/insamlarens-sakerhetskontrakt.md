@@ -89,7 +89,7 @@ Testerna finns i `test/unit/` och `test/e2e/` och körs med `npm test`.
 ## 8. Kända luckor
 
 1. **Nätverk stoppas inte utanför vår kod.** I Node 24.14 nådde ett anslutningsförsök nätverket trots `--permission` (`ECONNREFUSED`). Två vägar ska utredas: `unshare -rn`, som kräver att användarnamnrymder är tillåtna, och `--allow-net` i nyare Node-versioner, som inte är verifierat.
-2. **Mappkedjan till `~/.tokeniser` kontrolleras bara vid anslutning.** Behörighetsmodellen nekar insamlaren `lstat` ovanför `events/` och `state/`. Hälsokontrollen ska göra kontrollen igen.
+2. **Insamlaren kan inte kontrollera mappkedjan till `~/.tokeniser` själv.** Behörighetsmodellen nekar insamlaren `lstat` ovanför `events/` och `state/`. Anslutningen kontrollerar kedjan, och hälsokontrollen i extensionen gör om kontrollen vid varje uppdatering. Den upptäcker en ändring men hindrar inte insamlaren från att skriva under tiden.
 3. **Hårda länkar hanteras av koden, inte av körmiljön.** Behörighetsmodellen jämför bara sökvägar.
 4. **stdin läses i sin helhet** innan storleksgränsen på 1 MiB kontrolleras.
 5. **Fritext rensas inte från kontrolltecken** innan den sparas. Terminalraden påverkas inte, men vyn och framtida kommandon måste escapa texten.

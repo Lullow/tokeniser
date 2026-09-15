@@ -2,6 +2,8 @@ import { existsSync, watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as vscode from "vscode";
+import { buildHealth, type HealthFacts } from "./health/model.ts";
+import { MANAGED_DIR, readHealthFacts, type HealthIndex } from "./health/read.ts";
 import { indexPaths, openIndex } from "./index/db.ts";
 import { ingest } from "./index/ingest.ts";
 import { tryAcquireLock } from "./index/lock.ts";
@@ -68,6 +70,7 @@ class Controller implements vscode.Disposable {
   private readonly intervals: NodeJS.Timeout[] = [];
   private snapshot: Snapshot = emptySnapshot("Läser in data från Claude Code …");
   private viewData: ViewData = emptyViewData();
+  private healthFacts: HealthFacts | null = null;
   private watcher: FSWatcher | undefined;
   private pending: NodeJS.Timeout | undefined;
 
@@ -129,6 +132,7 @@ class Controller implements vscode.Disposable {
       if (!existsSync(eventsDir)) {
         this.snapshot = emptySnapshot(NOT_CONNECTED);
         this.viewData = emptyViewData();
+        this.healthFacts = null;
       } else {
         this.ensureWatcher(eventsDir);
         const db = openIndex(this.home);
@@ -144,30 +148,48 @@ class Controller implements vscode.Disposable {
           const now = Date.now();
           this.snapshot = readSnapshot(db, workspaceFolders(), now);
           if (this.provider.visible) this.viewData = readViewData(db, this.snapshot.session?.id ?? null, now);
+          this.healthFacts = this.readHealth({ db }, this.snapshot.session?.inWindowProject ?? null);
         } finally {
           db.close();
         }
       }
     } catch (error) {
-      this.snapshot = emptySnapshot(`Kan inte läsa Tokenisers data: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.snapshot = emptySnapshot(`Kan inte läsa Tokenisers data: ${message}`);
       this.viewData = emptyViewData();
+      this.healthFacts = this.readHealth({ error: message }, null);
     }
     this.render();
+  }
+
+  /** Point 7: the health check runs with every refresh and never throws. */
+  private readHealth(index: HealthIndex, inWindowProject: boolean | null): HealthFacts {
+    return readHealthFacts({
+      home: this.home,
+      claudeDir: join(homedir(), ".claude"),
+      managedDir: MANAGED_DIR,
+      workspaceFolders: workspaceFolders(),
+      index,
+      inWindowProject,
+      now: Date.now(),
+    });
   }
 
   private render(): void {
     const settings = readSettings();
     const now = Date.now();
-    const view = statusView(this.snapshot, settings.status, now);
+    const health = this.healthFacts === null ? null : buildHealth(this.healthFacts, now);
+    const view = statusView(this.snapshot, settings.status, now, health);
     this.item.text = view.text;
     this.item.accessibilityInformation = { label: view.accessibleLabel };
     this.item.backgroundColor =
       view.level === null ? undefined : new vscode.ThemeColor(view.level === "error" ? "statusBarItem.errorBackground" : "statusBarItem.warningBackground");
-    const tooltip = new vscode.MarkdownString(buildHover(this.snapshot, settings.status, now, themeKind()));
+    const tooltip = new vscode.MarkdownString(buildHover(this.snapshot, settings.status, now, themeKind(), health));
     tooltip.supportHtml = true;
+    tooltip.supportThemeIcons = true;
     tooltip.isTrusted = { enabledCommands: [OPEN_COMMAND] };
     this.item.tooltip = tooltip;
-    if (this.provider.visible) this.provider.update(buildViewModel(this.snapshot, this.viewData, settings, now));
+    if (this.provider.visible) this.provider.update(buildViewModel(this.snapshot, this.viewData, settings, now, health));
   }
 
   dispose(): void {

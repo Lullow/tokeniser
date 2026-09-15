@@ -1,5 +1,5 @@
 import { curveGeometry, ringDash, shortTokens } from "../geometry.ts";
-import type { ContextModel, DayModel, RingModel, Suggestion, ToWebview, ViewModel } from "../types.ts";
+import type { ContextModel, DayModel, HealthMark, HealthModel, RingModel, Suggestion, ToWebview, ViewModel } from "../types.ts";
 
 interface VsCodeApi {
   postMessage(message: unknown): void;
@@ -312,17 +312,109 @@ function suggestionsView(suggestions: readonly Suggestion[]): HTMLElement | null
   return wrap;
 }
 
+const MARK_SHAPES: Record<HealthMark, [keyof SVGElementTagNameMap, Record<string, string | number>][]> = {
+  ok: [
+    ["circle", { cx: 8, cy: 8, r: 6.2 }],
+    ["path", { d: "m5.2 8.2 1.9 1.9 3.7-4" }],
+  ],
+  warning: [
+    ["path", { d: "M8 2.2 14.3 13.3H1.7z" }],
+    ["path", { d: "M8 6.4v3.3M8 11.4v.1" }],
+  ],
+  unknown: [
+    ["circle", { cx: 8, cy: 8, r: 6.2 }],
+    ["path", { d: "M6.3 6.4a1.8 1.8 0 1 1 2.5 1.6c-.5.2-.8.6-.8 1.1v.3M8 11.4v.1" }],
+  ],
+  unchecked: [
+    ["circle", { cx: 8, cy: 8, r: 6.2, class: "dashed" }],
+    ["path", { d: "M5.5 8h5" }],
+  ],
+};
+
+/** The mark has a shape of its own, and the state is also written out, so color is never the only cue. */
+function markIcon(mark: HealthMark): SVGSVGElement {
+  const icon = svgEl("svg", { viewBox: "0 0 16 16", class: "health-mark", "aria-hidden": "true" });
+  for (const [tag, attributes] of MARK_SHAPES[mark]) icon.append(svgEl(tag, attributes));
+  return icon;
+}
+
+/** Backticks mark code; every part is still a text node. */
+function richText(text: string): Node[] {
+  return text.split("`").map((part, i) => (i % 2 === 1 ? el("code", "", part) : document.createTextNode(part)));
+}
+
+/** Decision 2026-09-15: always first in the view, and open by default only when something is wrong. */
+function healthView(health: HealthModel): HTMLElement {
+  const key = `health:${health.level}:${health.title}`;
+  const saved = ui.open[key];
+  const open = typeof saved === "boolean" ? saved : health.level === "warning";
+  const card = el("div", `health level-${health.level}`);
+  card.dataset.open = String(open);
+
+  const body = el("div", "health-body");
+  body.id = "health-body";
+  body.inert = !open;
+  const list = el("ul", "health-list");
+  for (const check of health.checks) {
+    const item = el("li", `health-check mark-${check.mark}`);
+    const label = el("span", "health-label", check.label);
+    label.append(el("span", "health-state", check.state));
+    const detail = el("div", "health-detail");
+    detail.append(...richText(check.detail));
+    if (check.action !== null) {
+      const action = el("div", "health-action");
+      action.append(el("span", "health-action-label", "Åtgärd: "), ...richText(check.action));
+      detail.append(action);
+    }
+    if (check.command !== null) {
+      const button = el("button", "button", `Kopiera ${check.command}`);
+      button.type = "button";
+      button.dataset.copy = check.command;
+      button.dataset.focus = `copy:health:${check.id}`;
+      const buttons = el("div", "health-buttons");
+      buttons.append(button);
+      detail.append(buttons);
+    }
+    item.append(markIcon(check.mark), label, detail);
+    list.append(item);
+  }
+  const inner = el("div", "health-inner");
+  inner.append(list);
+  body.append(inner);
+
+  const toggle = el("button", "health-head");
+  toggle.type = "button";
+  toggle.dataset.focus = "toggle:health";
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.setAttribute("aria-controls", body.id);
+  const tag = el("span", "health-tag");
+  tag.append(markIcon(health.level === "warning" ? "warning" : "ok"), "Hälsa");
+  toggle.append(tag, el("span", "health-title", health.title), el("span", "health-summary", health.summary), chevron());
+  toggle.addEventListener("click", () => {
+    const next = card.dataset.open !== "true";
+    card.dataset.open = String(next);
+    body.inert = !next;
+    toggle.setAttribute("aria-expanded", String(next));
+    ui.open[key] = next;
+    vscode.setState(ui);
+  });
+
+  card.append(toggle, body);
+  return card;
+}
+
 function render(model: ViewModel): void {
   const before = previous;
   previous = model;
   const active = document.activeElement;
   const focusKey = active instanceof HTMLElement ? active.dataset.focus : undefined;
   const scroll = document.scrollingElement?.scrollTop ?? 0;
+  const health = model.health === null ? [] : [healthView(model.health)];
 
   if (model.unavailable !== null) {
     const box = el("div", "unavailable");
     box.append(heading("Tokeniser"), el("p", "", model.unavailable));
-    root.replaceChildren(box);
+    root.replaceChildren(...health, box);
     return;
   }
 
@@ -333,7 +425,7 @@ function render(model: ViewModel): void {
   const suggestions = suggestionsView(model.suggestions);
   if (suggestions !== null) grid.append(suggestions);
   grid.append(sessionView(model, before), historyView(model));
-  root.replaceChildren(top, grid);
+  root.replaceChildren(top, ...health, grid);
 
   if (focusKey !== undefined) root.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focusKey)}"]`)?.focus();
   if (document.scrollingElement !== null) document.scrollingElement.scrollTop = scroll;

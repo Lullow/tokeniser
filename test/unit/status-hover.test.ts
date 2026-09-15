@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildHover, escapeMarkdown, ringsSvg } from "../../src/status/hover.ts";
 import { limitState } from "../../src/status/model.ts";
-import { NOW, reading, rising, SETTINGS, snap } from "../helpers/status.ts";
+import { HEALTH_WARNING, NOW, reading, rising, SETTINGS, snap } from "../helpers/status.ts";
 
 const svgOf = (markdown: string): string => {
   const match = /base64,([^"]+)"/.exec(markdown);
@@ -61,6 +61,13 @@ test("bilden följer temat och tröskelfärgerna", () => {
   const dark = svgOf(buildHover(snap({ five: reading(96, 20) }), SETTINGS, NOW, "dark"));
   assert.ok(dark.includes('stroke="#F14C4C"'), "felfärg för 5 h");
   assert.ok(dark.includes('opacity="0.55"'), "äldre data ritas svagare");
+});
+
+test("snabbkortet visar en hälsovarning med en länk till vyn, men inget när allt är i ordning", () => {
+  const line = "$(warning) **Hälsa:** Insamlaren har ändrats sedan anslutningen · [Visa hälsa](command:tokeniser.openView)";
+  assert.ok(buildHover(snap(), SETTINGS, NOW, "dark", HEALTH_WARNING).includes(`\n\n${line}\n\n`));
+  assert.ok(buildHover(snap({ unavailable: "Kan inte läsa." }), SETTINGS, NOW, "dark", HEALTH_WARNING).endsWith(`\n\n${line}`));
+  assert.doesNotMatch(buildHover(snap(), SETTINGS, NOW, "dark", { ...HEALTH_WARNING, level: "ok", title: "Allt i ordning" }), /Hälsa/);
 });
 
 test("utan data visar snabbkortet bara orsaken", () => {

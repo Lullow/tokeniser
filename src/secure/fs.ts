@@ -180,6 +180,36 @@ export function readFileChecked(path: string, policy: FilePolicy, uid = currentU
   }
 }
 
+/**
+ * Reads a regular file only to inspect it, whoever owns it: settings from an organization or
+ * a repository are read, never trusted. No symlinks, no FIFOs or devices, and a size limit.
+ */
+export function readRegularFile(path: string, maxBytes: number): Buffer | null {
+  let fd: number;
+  try {
+    fd = openNoFollow(path, constants.O_RDONLY | constants.O_NONBLOCK);
+  } catch (error) {
+    if (errnoCode(error) === "ENOENT" || errnoCode(error) === "ENOTDIR") return null;
+    throw error;
+  }
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) throw new UnsafePathError(path, "är inte en vanlig fil");
+    if (st.size > maxBytes) throw new UnsafePathError(path, `är större än ${maxBytes} byte`);
+    const buffer = Buffer.alloc(st.size + 1);
+    let total = 0;
+    for (;;) {
+      const read = readSync(fd, buffer, total, buffer.length - total, null);
+      if (read === 0) break;
+      total += read;
+      if (total === buffer.length) throw new UnsafePathError(path, "växte medan den lästes");
+    }
+    return buffer.subarray(0, total);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 export function appendPrivateFile(path: string, data: string, uid = currentUid()): void {
   const fd = openNoFollow(path, constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT, 0o600);
   try {
