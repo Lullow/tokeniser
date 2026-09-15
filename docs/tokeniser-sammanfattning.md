@@ -321,7 +321,9 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
 
      Inställningsfiler från organisationen och från repon läses bara för inspektion: inga symboliska länkar, inga FIFO-filer, högst 1 MiB och bara de tre nycklarna. En symbolisk länk högre upp i sökvägen, till exempel en `.claude`-mapp som är en länk, följs däremot. Det är godtaget eftersom inget från filen visas eller sparas.
    - **Rättat 2026-09-15:** kurvan över 7 dagar klippte "100,0 M" och fick större text i breda kolumner. Den ritas nu i rutans verkliga pixlar med fast höjd och 11 px text, och axelns etiketter har inga onödiga decimaler ("100 M").
-   - **Upptäckt 2026-09-15, inte utrett:** testerna för samtidig inläsning faller ibland med `database is locked` när datorn är belastad, till exempel när testsviterna körs samtidigt. De går igenom när de körs ensamma. Två VS Code-fönster som startar samtidigt kan därför tillfälligt visa "Kan inte läsa Tokenisers data".
+   - **Rättat 2026-09-15:** samtidiga processer mot indexet kunde ge "Kan inte läsa Tokenisers data". Två orsaker hittades med ett skript som startade upp till fem processer mot samma index i hundratals omgångar:
+     1. **Nytt index:** `PRAGMA journal_mode = WAL` kräver ensamrätt. SQLite svarade `database is locked` efter 1 ms i stället för att vänta ut `busy_timeout`, i 7 av 240 processer. Nu byts läget bara när indexet inte redan är i WAL-läge. Bytet görs om i högst 5 sekunder, och resultatet kontrolleras.
+     2. **Befintligt index:** när den sista anslutningen i ett annat fönster stängs tar SQLite bort `index.sqlite-wal`. Kontrollen före öppningen kunde då se en fil med 0 hårda länkar och kasta ett falsklarm, i 5 av 120 processer som öppnade och stängde indexet 40 gånger var. Nu räknas en fil med 0 länkar som borttagen när den bara läses. Skrivningar avbryts som förut, och 2 eller fler länkar avvisas fortfarande.
 
 ---
 

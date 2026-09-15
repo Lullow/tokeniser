@@ -7,7 +7,9 @@ import { openIndex } from "../../src/index/db.ts";
 import { appendEvents, dumpIndex, eventLine, makeStore } from "../helpers/events.ts";
 
 const script = fileURLToPath(new URL("../../scripts/index.ts", import.meta.url));
-const NODE_ARGS = ["--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "--disable-warning=ExperimentalWarning", script];
+const WARNINGS = ["--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "--disable-warning=ExperimentalWarning"];
+const NODE_ARGS = [...WARNINGS, script];
+const dbModule = new URL("../../src/index/db.ts", import.meta.url).href;
 const T0 = 1_789_391_280_000;
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -20,9 +22,11 @@ interface Run {
 const runIndex = (home: string, ...args: string[]) =>
   spawnSync(process.execPath, [...NODE_ARGS, `--home=${home}`, ...args], { encoding: "utf8", timeout: 60_000 });
 
-function runIndexAsync(home: string, ...args: string[]): Promise<Run> {
+const runIndexAsync = (home: string, ...args: string[]): Promise<Run> => runNodeAsync([script, `--home=${home}`, ...args]);
+
+function runNodeAsync(args: string[]): Promise<Run> {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [...NODE_ARGS, `--home=${home}`, ...args]);
+    const child = spawn(process.execPath, [...WARNINGS, ...args]);
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk: Buffer) => {
@@ -72,6 +76,24 @@ test("med lås läser en process in och de andra visar indexet som det är", { t
   for (const run of runs) assert.equal(run.code, 0, run.stderr);
   for (const run of runs) assert.ok(["ingested", "locked"].includes(JSON.parse(run.stdout).status));
   assert.equal(indexedEvents(home), 3000);
+});
+
+/** Opens and closes the index many times, like a VS Code window refreshing. */
+const CHURN = `import { openIndex } from ${JSON.stringify(dbModule)};
+for (let i = 0; i < 40; i++) {
+  const db = openIndex(process.argv[1]);
+  db.prepare("SELECT COUNT(*) AS n FROM events").get();
+  db.close();
+}`;
+
+test("fönster som öppnar och stänger samma index samtidigt får inga falsklarm", { timeout: 120_000 }, async () => {
+  for (let round = 1; round <= 20; round++) {
+    const home = makeStore();
+    appendEvents(home, "2026-09", many("09", 200, T0));
+    assert.equal(runIndex(home).status, 0);
+    const runs = await Promise.all([1, 2, 3].map(() => runNodeAsync(["--input-type=module", "-e", CHURN, home])));
+    for (const run of runs) assert.equal(run.code, 0, `omgång ${round}: ${run.stderr}`);
+  }
 });
 
 test("--rebuild ger samma index som stegvis inläsning", { timeout: 60_000 }, () => {

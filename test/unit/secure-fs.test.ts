@@ -1,17 +1,34 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
   appendPrivateFile,
+  assertOwnedFile,
   assertPrivateDir,
   assertTrustedAncestors,
   ChangedSinceReviewError,
+  currentUid,
   ensurePrivateDir,
   readFileChecked,
   readRegularFile,
+  RemovedWhileOpenError,
   removeFileChecked,
   replaceFileAtomic,
   sha256,
@@ -98,6 +115,32 @@ test("fil för inspektion: symlänk, FIFO och för stor fil avvisas, saknad fil 
   execFileSync("mkfifo", [fifo]);
   assert.throws(() => readRegularFile(fifo, 16), /inte en vanlig fil/);
   assert.throws(() => readRegularFile(root, 16), /inte en vanlig fil/);
+});
+
+test("en fil som tas bort medan den är öppen räknas som borttagen, men en hård länk avvisas fortfarande", () => {
+  const root = sandbox();
+  const removed = join(root, "index.sqlite-wal");
+  writeFileSync(removed, "wal", { mode: 0o600 });
+  const fd = openSync(removed, "r");
+  try {
+    unlinkSync(removed);
+    assert.throws(() => assertOwnedFile(fd, removed, currentUid(), true), RemovedWhileOpenError);
+  } finally {
+    closeSync(fd);
+  }
+
+  const linked = join(root, "linked");
+  writeFileSync(linked, "x", { mode: 0o600 });
+  linkSync(linked, join(root, "other-name"));
+  const linkedFd = openSync(linked, "r");
+  try {
+    assert.throws(
+      () => assertOwnedFile(linkedFd, linked, currentUid(), true),
+      (error: unknown) => error instanceof UnsafePathError && !(error instanceof RemovedWhileOpenError) && /2 hårda länkar/.test(error.message),
+    );
+  } finally {
+    closeSync(linkedFd);
+  }
 });
 
 test("tillägg genom en hård länk avvisas och målet lämnas orört", () => {

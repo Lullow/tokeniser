@@ -34,6 +34,18 @@ export class ChangedSinceReviewError extends Error {
   }
 }
 
+/**
+ * The name was removed between opening and checking, which leaves the opened file with no links.
+ * That is not a hard link, which has two or more: for a reader the file no longer exists. SQLite
+ * removes index.sqlite-wal this way when the last connection in another window closes.
+ */
+export class RemovedWhileOpenError extends UnsafePathError {
+  constructor(path: string) {
+    super(path, "togs bort medan den öppnades");
+    this.name = "RemovedWhileOpenError";
+  }
+}
+
 export interface FilePolicy {
   /** Private files may have no group or other bits; others may not be group or other writable. */
   private: boolean;
@@ -127,9 +139,10 @@ function openNoFollow(path: string, flags: number, mode?: number): number {
 }
 
 /** O_NOFOLLOW stops symlinks but not hard links, so the opened file itself is checked. */
-function assertOwnedFile(fd: number, path: string, uid: number, privateFile: boolean): Stats {
+export function assertOwnedFile(fd: number, path: string, uid: number, privateFile: boolean): Stats {
   const st = fstatSync(fd);
   if (!st.isFile()) throw new UnsafePathError(path, "är inte en vanlig fil");
+  if (st.nlink === 0) throw new RemovedWhileOpenError(path);
   if (st.uid !== uid) throw new UnsafePathError(path, `ägs av uid ${st.uid}, inte ${uid}`);
   if (st.nlink !== 1) throw new UnsafePathError(path, `har ${st.nlink} hårda länkar`);
   const forbidden = privateFile ? 0o077 : 0o022;
@@ -175,6 +188,9 @@ export function readFileChecked(path: string, policy: FilePolicy, uid = currentU
       if (total === buffer.length) throw new UnsafePathError(path, "växte medan den lästes");
     }
     return { bytes: buffer.subarray(0, total), mode: st.mode & 0o7777 };
+  } catch (error) {
+    if (error instanceof RemovedWhileOpenError) return null;
+    throw error;
   } finally {
     closeSync(fd);
   }
@@ -314,6 +330,9 @@ export function readRangeChecked(path: string, privateFile: boolean, offset: num
       total += read;
     }
     return { bytes: bytes.subarray(0, total), size: st.size, dev: st.dev, ino: st.ino };
+  } catch (error) {
+    if (error instanceof RemovedWhileOpenError) return null;
+    throw error;
   } finally {
     closeSync(fd);
   }
@@ -339,6 +358,8 @@ export function assertPrivateFileIfExists(path: string, uid = currentUid()): voi
   }
   try {
     assertOwnedFile(fd, path, uid, true);
+  } catch (error) {
+    if (!(error instanceof RemovedWhileOpenError)) throw error;
   } finally {
     closeSync(fd);
   }

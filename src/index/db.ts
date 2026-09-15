@@ -40,9 +40,46 @@ export function transaction<T>(db: DatabaseSync, fn: () => T): T {
 const userVersion = (db: DatabaseSync): number =>
   Number((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version);
 
+const BUSY_TIMEOUT_MS = 5000;
+const SQLITE_BUSY = 5;
+
+const isBusy = (error: unknown): boolean => {
+  const code = (error as { errcode?: unknown } | null)?.errcode;
+  return typeof code === "number" && (code & 0xff) === SQLITE_BUSY;
+};
+
+/** openIndex is synchronous, like node:sqlite, so a retry waits by blocking briefly. */
+function pause(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+const journalMode = (db: DatabaseSync, sql: string): string =>
+  String((db.prepare(sql).get() as { journal_mode?: unknown } | undefined)?.journal_mode ?? "");
+
+/**
+ * Converting to WAL needs exclusive access. When several processes open a new index at once,
+ * SQLite answers SQLITE_BUSY at once instead of waiting for busy_timeout, so the conversion is
+ * retried for as long as busy_timeout. WAL is persistent, so an index in WAL is never converted again.
+ */
+export function ensureWal(db: DatabaseSync, waitMs = BUSY_TIMEOUT_MS): void {
+  const deadline = Date.now() + waitMs;
+  for (let wait = 5; ; wait = Math.min(wait * 2, 100)) {
+    let mode = "";
+    try {
+      mode = journalMode(db, "PRAGMA journal_mode");
+      if (mode !== "wal") mode = journalMode(db, "PRAGMA journal_mode = WAL");
+    } catch (error) {
+      if (!isBusy(error) || Date.now() >= deadline) throw error;
+    }
+    if (mode === "wal") return;
+    if (Date.now() >= deadline) throw new Error(`index.sqlite kunde inte byta till WAL-läge (läget är ${mode || "okänt"}).`);
+    pause(wait);
+  }
+}
+
 function connect(path: string): DatabaseSync {
   const db = new DatabaseSync(path);
-  db.exec("PRAGMA busy_timeout = 5000");
+  db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
   return db;
 }
 
@@ -71,7 +108,7 @@ export function openIndex(home: string, uid = currentUid()): DatabaseSync {
       ensurePrivateFile(path, uid);
       db = connect(path);
     }
-    db.exec("PRAGMA journal_mode = WAL");
+    ensureWal(db);
     db.exec("PRAGMA foreign_keys = ON");
     if (userVersion(db) !== SCHEMA_VERSION) {
       transaction(db, () => {
