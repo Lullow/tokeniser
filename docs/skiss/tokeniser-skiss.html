@@ -276,15 +276,48 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
 .btn{font-size:12px;line-height:18px;padding:1px 9px;border-radius:2px;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--btn-fg);cursor:pointer}
 .btn.sec{background:var(--btn2-bg);color:var(--btn2-fg)}
 
+/* Hälsoraden */
+.vsc{--ok-fg:#73C991; --warn-ic:#CCA700; --hl-warn-bg:rgba(204,167,0,.08); --hl-warn-border:rgba(204,167,0,.45)}
+.vsc[data-vs="light"]{--ok-fg:#2E7D32; --warn-ic:#8A6100; --hl-warn-bg:rgba(191,136,3,.07); --hl-warn-border:rgba(191,136,3,.5)}
+.vsc[data-vs="hc"]{--ok-fg:#89D185; --warn-ic:#FFD700; --hl-warn-bg:#000000; --hl-warn-border:#FFD700}
+.tk-wide > .hl{grid-column:1 / -1}
+.hl{border:1px solid var(--border);border-radius:4px}
+.hl[data-level="warn"]{border-color:var(--hl-warn-border);background:var(--hl-warn-bg)}
+.hl-head{display:flex;align-items:center;gap:10px;width:100%;padding:5px 10px;border:0;background:transparent;cursor:pointer;text-align:left}
+.hl-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.hl-tag svg{width:14px;height:14px}
+.hl[data-level="ok"] .hl-tag{color:var(--ok-fg)}
+.hl[data-level="warn"] .hl-tag{color:var(--warn-ic)}
+.hl-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hl-sub{font-size:12px;color:var(--fg-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.hl[data-open="true"] .chev{transform:rotate(90deg)}
+.hl-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease}
+.hl[data-open="true"] .hl-body{grid-template-rows:1fr}
+.hl-inner{overflow:hidden}
+.hl-list{list-style:none;margin:0;padding:2px 10px 10px;display:grid;gap:7px;font-size:12.5px}
+.hl-list li{display:grid;grid-template-columns:14px 158px minmax(0,1fr);gap:1px 10px;align-items:start}
+.hl-mark{width:14px;height:14px;margin-top:2px}
+.mk-ok{color:var(--ok-fg)} .mk-warn{color:var(--warn-ic)} .mk-unk,.mk-off{color:var(--fg-muted)}
+.hl-label{font-weight:600}
+.hl-state{display:block;font-size:11.5px;font-weight:400;color:var(--fg-muted)}
+.hl-detail{min-width:0}
+.hl-act{margin-top:3px}
+.hl-act b{font-weight:600}
+.tk-tall .hl-sub{display:none}
+.tk-tall .hl-list li{grid-template-columns:14px minmax(0,1fr)}
+.tk-tall .hl-detail{grid-column:2}
+.hc-health{margin:8px 0 0;display:flex;gap:6px;align-items:flex-start}
+.hc-health svg{width:14px;height:14px;margin-top:2px;color:var(--warn-ic)}
+
 .vsc.reduce *,.vsc.reduce{transition:none !important}
 @media (prefers-reduced-motion: reduce){ .sig{transition:none} }
 </style>
 
 <div class="wrap">
   <header>
-    <p class="eyebrow">Klickbar skiss 1 · 14 sep 2026 · exempeldata</p>
+    <p class="eyebrow">Klickbar skiss 1 · 14 sep 2026 · hälsoraden tillagd 15 sep · exempeldata</p>
     <h1>Tokeniser <code class="sig" id="sig">5h 64% · v 31%</code></h1>
-    <p class="lede">Prova de tre formerna, båda teman och alla fyra datatillstånd innan vyn byggs. Alla siffror är påhittade. Det som ska godkännas är innehåll, ordning, texter och beteende.</p>
+    <p class="lede">Prova de tre formerna, alla teman och alla fyra datatillstånd. Hälsoraden är ny: välj ett scenario under Hälsa och se raden överst i vyn, ikonen i statusraden och raden i snabbkortet. Alla siffror, sessioner och kontrollsummor är påhittade.</p>
   </header>
 
   <div class="controls">
@@ -311,6 +344,15 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
         <input type="radio" name="state" id="state-aldre" value="aldre"><label for="state-aldre">Äldre</label>
         <input type="radio" name="state" id="state-aterstalld" value="aterstalld"><label for="state-aterstalld">Återställd</label>
         <input type="radio" name="state" id="state-saknas" value="saknas"><label for="state-saknas">Saknas</label>
+      </div>
+    </fieldset>
+    <fieldset class="seg">
+      <legend>Hälsa</legend>
+      <div class="seg-row">
+        <input type="radio" name="health" id="health-ok" value="ok" checked><label for="health-ok">Allt i ordning</label>
+        <input type="radio" name="health" id="health-falt" value="falt"><label for="health-falt">Fält saknas</label>
+        <input type="radio" name="health" id="health-insamlare" value="insamlare"><label for="health-insamlare">Insamlaren ändrad</label>
+        <input type="radio" name="health" id="health-projekt" value="projekt"><label for="health-projekt">Projektets statusrad</label>
       </div>
     </fieldset>
     <div class="sel">
@@ -426,13 +468,17 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
       <p id="note-state-text"></p>
     </div>
     <div class="note">
-      <p class="eyebrow">Att ta ställning till</p>
-      <h2>Fyra frågor innan godkännande</h2>
+      <p class="eyebrow">Hälsa</p>
+      <h2 id="note-health-title"></h2>
+      <p id="note-health-text"></p>
+    </div>
+    <div class="note">
+      <p class="eyebrow">Besvarat 15 sep 2026</p>
+      <h2>Tre beslut om hälsoraden</h2>
       <ol>
-        <li>Ska förslaget ligga som en fällbar rad överst i vyn, eller som en egen sektion efter sessionen?</li>
-        <li>Räcker färg och etikett för att skilja 5 h från vecka, eller ska ringarna ha olika storlek?</li>
-        <li>Ska statusraden visa en klocka när datan är <b>Äldre</b>, eller ska åldern bara synas i snabbkortet?</li>
-        <li>Är tre kolumner rätt i bottenpanelen, eller ska 7 dagar och projekt ligga bakom ett klick?</li>
+        <li>Hälsoraden ligger alltid överst i vyn, före förslaget.</li>
+        <li><b>Kontrolleras inte</b> och <b>Utom räckhåll</b> står i listan med de andra kontrollerna.</li>
+        <li>Gränsringarna märks inte som osäkra när insamlaren har ändrats. Varningen i hälsoraden, ikonen i statusraden och raden i snabbkortet räcker.</li>
       </ol>
     </div>
   </section>
@@ -476,10 +522,11 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   let reduceInit = false;
   try { reduceInit = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
-  const ui = { form: 'bottom', theme: prefersDark ? 'dark' : 'light', state: 'aktuell', mode: 'both', open: true, reduce: reduceInit, suggOpen: false };
+  const ui = { form: 'bottom', theme: prefersDark ? 'dark' : 'light', state: 'aktuell', mode: 'both', open: true, reduce: reduceInit, suggOpen: false, health: 'ok', healthOpen: false };
 
   /* ---------- Härledda värden ---------- */
   function limit(which) {
+    if (ui.health === 'falt' && which === 'week' && ui.state !== 'saknas') return { kind: 'saknas', why: 'format' };
     const pct = which === 'five' ? vals.five : vals.week;
     const reset = which === 'five'
       ? { clock: '17:00', in: 'om ' + dur(FIVE_RESET - vals.nowMin) }
@@ -511,6 +558,7 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   function ringBlock(key, label, lv) {
     const meta = hasPct(lv) ? `återställs ${lv.reset.clock}<br>${lv.reset.in}`
       : lv.kind === 'aterstalld' ? `återställdes ${lv.reset.clock}<br>ny siffra vid nästa svar`
+      : lv.why === 'format' ? 'saknas i Claude Codes<br>data · se Hälsa'
       : 'kommer med första<br>svaret i sessionen';
     const pill = { aktuell: 'Aktuell', aldre: `Äldre · ${lv.age}`, aterstalld: 'Återställd', saknas: 'Saknas' }[lv.kind];
     const aria = hasPct(lv) ? `${label}: ${Math.round(lv.pct)} procent förbrukat` : `${label}: ${pill}`;
@@ -527,7 +575,7 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   function limits() {
     const f = limit('five'), w = limit('week');
     const fc = ui.state === 'aktuell'
-      ? `<p class="fc"><span class="est">uppskattning</span> ${forecastMain()}</p><p class="fc-sub">Takt för 5 h: +11${NB}% senaste 30 min. Veckan räcker till återställningen.</p>`
+      ? `<p class="fc"><span class="est">uppskattning</span> ${forecastMain()}</p><p class="fc-sub">Takt för 5 h: +11${NB}% senaste 30 min. ${ui.health === 'falt' ? 'Veckoprognos döljs – veckogränsen saknas.' : 'Veckan räcker till återställningen.'}</p>`
       : `<p class="fc muted">Prognos döljs – ${HIDDEN_WHY[ui.state]}.</p>`;
     const out = ui.state === 'aktuell'
       ? `<div>≈ 7${NB}% av 5 h sedan 13:10 <span class="est">uppskattning</span></div>`
@@ -549,7 +597,7 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
     const t = vals.tokens;
     const tile = (label, key, v) => `<div class="tile"><div class="tile-l">${label}</div><div class="tile-v"${miss ? '' : ` data-num="${key}"`}>${miss ? '–' : n0(v)}</div>${miss ? '<div class="tile-s">saknas</div>' : ''}</div>`;
     return `<section class="tk-sec"><h3 class="tk-h"><span>Session</span><span class="sub">${miss ? 'ny session' : 'Opus 5 · high'}</span></h3>
-      <p class="others">lullo/tokeniser <span class="muted">· +2 andra aktiva sessioner</span></p>
+      <p class="others">${ui.health === 'projekt' ? 'sound-bot <span class="muted">· senaste sessionen totalt, ingen data från lullo/tokeniser</span>' : 'lullo/tokeniser <span class="muted">· +2 andra aktiva sessioner</span>'}</p>
       ${ctx}
       <div class="tiles">${tile('Input', 'input', t.input)}${tile('Output', 'output', t.output)}${tile('Cache skapad', 'cacheCreate', t.cacheCreate)}${tile('Cache läst', 'cacheRead', t.cacheRead)}</div></section>`;
   }
@@ -603,10 +651,64 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
       <div class="sugg-body" id="sugg-body"><div class="sugg-inner"><dl>${dl}</dl></div></div></div>`;
   }
 
+  /* ---------- Hälsoraden ---------- */
+  const MARKS = {
+    ok: '<circle cx="8" cy="8" r="6.2"/><path d="m5.2 8.2 1.9 1.9 3.7-4" stroke-linecap="round" stroke-linejoin="round"/>',
+    warn: '<path d="M8 2.2 14.3 13.3H1.7z" stroke-linejoin="round"/><path d="M8 6.4v3.3M8 11.4v.1" stroke-linecap="round"/>',
+    unk: '<circle cx="8" cy="8" r="6.2"/><path d="M6.3 6.4a1.8 1.8 0 1 1 2.5 1.6c-.5.2-.8.6-.8 1.1v.3M8 11.4v.1" stroke-linecap="round"/>',
+    off: '<circle cx="8" cy="8" r="6.2" stroke-dasharray="2 2"/><path d="M5.5 8h5" stroke-linecap="round"/>',
+  };
+  const mark = (kind, cls = '') => `<svg class="${cls}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">${MARKS[kind]}</svg>`;
+  const MARK_WORD = { ok: 'I ordning', warn: 'Varning', unk: 'Kan inte kontrolleras', off: 'Kontrolleras inte' };
+  const HEALTH_TITLE = { falt: 'Veckogränsen saknas i Claude Codes data', insamlare: 'Insamlaren har ändrats sedan anslutningen', projekt: 'Projektet tokeniser har en egen statusrad' };
+
+  function healthChecks() {
+    const h = ui.health;
+    const seen = { aktuell: `${vals.received}, för 12 s sedan`, aldre: '14:28:03, för 40 min sedan', aterstalld: '12:58:40, för 2 h 10 min sedan', saknas: '15:07:52, för 16 s sedan' }[ui.state];
+    const sid = h === 'projekt' ? '9c1d52aa' : ui.state === 'saknas' ? '7b41c0de' : '344a3a30';
+    const fields = {
+      aktuell: 'Alla fält finns i senaste svaret.',
+      aldre: 'Alla fält finns i senaste svaret.',
+      aterstalld: '<code>rate_limits.five_hour</code> saknas: fönstret återställdes 15:00, och fältet kommer tillbaka vid nästa svar.',
+      saknas: '<code>rate_limits</code> och kontextens användning saknas: sessionen har inte fått något svar än.',
+    }[ui.state];
+    return [
+      { mark: 'ok', label: 'Senaste data', detail: `${seen} · session <code>${sid}</code> · ${h === 'projekt' ? 'sound-bot' : 'lullo/tokeniser'} · Claude Code 2.1.270${h === 'projekt' ? '. Ingen data från lullo/tokeniser i dag.' : ''}` },
+      h === 'falt'
+        ? { mark: 'warn', label: 'Fält i datan', detail: '<code>rate_limits.seven_day</code> har saknats i de 9 senaste svaren sedan 13:40, fast fönstret inte har återställts. Ingen dokumenterad orsak passar, så Claude Code kan ha ändrat formatet. 2 körningar avvisades senaste 24 h som ogiltig JSON, senast 14:02.', action: 'Jämför med <code>/usage</code>. Veckan visas som Saknas tills fältet kommer tillbaka.' }
+        : { mark: 'ok', label: 'Fält i datan', detail: `${fields} Inga avvisade körningar senaste 24 h.` },
+      h === 'insamlare'
+        ? { mark: 'warn', label: 'Insamlaren', detail: 'Kontrollsumman har ändrats sedan anslutningen 14 sep 23:16: väntad <code>3f9a…c21e</code>, nu <code>8b02…77d1</code>. Kontrollen upptäcker ändringen men kan inte hindra den.', action: `Byggde du inte om insamlaren själv, ta reda på vad som ändrade filen. Koppla sedan från och anslut igen. <span class="btns">${copyBtn('npm run connect -- --disconnect')}</span>` }
+        : { mark: 'ok', label: 'Insamlaren', detail: 'Oförändrad sedan anslutningen 14 sep 23:16 (<code>3f9a…c21e</code>). Ingen symbolisk länk, en hård länk och rättigheterna 0600.' },
+      { mark: 'ok', label: 'Mappar', detail: '<code>~/.tokeniser</code> och undermapparna är privata (0700). Mapparna ovanför har inga symboliska länkar, och ingen annan kan skriva i dem.' },
+      h === 'projekt'
+        ? { mark: 'warn', label: 'Statusraden i Claude Code', detail: '<code>.claude/settings.local.json</code> i <code>tokeniser</code> sätter en egen <code>statusLine</code>. Den går före din användarfil, så sessioner som startas i mappen skickar ingen data till Tokeniser.', action: 'Ta bort <code>statusLine</code> ur filen om projektet ska mätas.' }
+        : { mark: 'ok', label: 'Statusraden i Claude Code', detail: '<code>~/.claude/settings.json</code> kör Tokenisers insamlare. Ingen annan <code>statusLine</code> och inget <code>disableAllHooks</code> i <code>/etc/claude-code</code> eller i fönstrets <code>.claude</code>-filer.' },
+      { mark: 'off', label: 'Node-filen', detail: 'Kontrolleras inte än. Hashen sparas inte vid anslutningen, och det läggs till i ett eget steg.' },
+      { mark: 'unk', label: 'Utom räckhåll', detail: 'Om mappen är betrodd i Claude Code, <code>--settings</code>, inställningar från claude.ai, Windows-policy och sessioner som startas i en undermapp. Betrodda mappar står i <code>~/.claude.json</code>, som också innehåller din inloggning, så den filen läser Tokeniser inte.' },
+    ];
+  }
+
+  function health() {
+    const rows = healthChecks();
+    const warns = rows.filter(r => r.mark === 'warn').length;
+    const oks = rows.filter(r => r.mark === 'ok').length;
+    const level = warns ? 'warn' : 'ok';
+    const title = warns ? HEALTH_TITLE[ui.health] : 'Allt i ordning';
+    const sub = `${warns ? `${warns} varning` : `${oks} kontroller i ordning`} · kontrollerat ${clock(vals.nowMin)}`;
+    const items = rows.map(r => `<li>${mark(r.mark, `hl-mark mk-${r.mark}`)}<span class="hl-label">${r.label}<span class="hl-state">${MARK_WORD[r.mark]}</span></span><div class="hl-detail">${r.detail}${r.action ? `<div class="hl-act"><b>Åtgärd:</b> ${r.action}</div>` : ''}</div></li>`).join('');
+    return `<div class="hl" data-level="${level}" data-open="${ui.healthOpen}">
+      <button class="hl-head" type="button" id="hl-toggle" aria-expanded="${ui.healthOpen}" aria-controls="hl-body">
+        <span class="hl-tag">${mark(level)}Hälsa</span><span class="hl-title">${title}</span><span class="hl-sub">${sub}</span>
+        <svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4.5 2.5 3.5 3.5-3.5 3.5"/></svg>
+      </button>
+      <div class="hl-body" id="hl-body"><div class="hl-inner"><ul class="hl-list">${items}</ul></div></div></div>`;
+  }
+
   function viewHTML(layout) {
     return layout === 'wide'
-      ? `${suggestion()}${limits()}${session()}${history()}`
-      : `${limits()}${suggestion()}${session()}${history()}`;
+      ? `${health()}${suggestion()}${limits()}${session()}${history()}`
+      : `${health()}${limits()}${suggestion()}${session()}${history()}`;
   }
 
   function cardHTML() {
@@ -617,15 +719,19 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
     const ctx = ui.state === 'saknas' ? 'Kontext saknas' : `Kontext <b>${pctTxt(vals.ctx / 1e4)}</b> · ${n0(vals.ctx)} tokens`;
     const fc = ui.state === 'aktuell' ? `${forecastMain()} <span class="est">uppskattning</span>` : `<span class="muted">Prognos döljs – ${HIDDEN_WHY[ui.state]}.</span>`;
     const foot = ui.state === 'saknas' ? 'Gränserna kommer med första svaret i sessionen.' : 'Uppdateras vid nästa svar i Claude Code.';
+    const warn = ui.health !== 'ok';
     return `<div class="hc-top"><div class="hc-rings">${ringSVG(f, 'five', true)}${ringSVG(w, 'week', true)}</div>
       <div class="hc-lines"><div>${line('5 h', f)}</div><div>${line('Vecka', w)}</div><div>${ctx}</div></div></div>
+      ${warn ? `<p class="hc-health">${mark('warn')}<span>${HEALTH_TITLE[ui.health]}.</span></p>` : ''}
       <p class="hc-fc">${fc}</p><p class="hc-foot">${foot}</p>
-      <div class="hc-links"><a href="#" data-open-view>Öppna Tokeniser</a><a href="#" data-open-view>Visa förslag</a></div>`;
+      <div class="hc-links"><a href="#" data-open-view="view">Öppna Tokeniser</a>${warn ? '<a href="#" data-open-view="health">Visa hälsa</a>' : ''}<a href="#" data-open-view="sugg">Visa förslag</a></div>`;
   }
 
   /* ---------- Statusrad, terminal och anteckningar ---------- */
   const CLOCK_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.8V8l2.2 1.4"/></svg>';
   const GAUGE_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M2.5 11.5a5.5 5.5 0 1 1 11 0"/><path d="M8 11.5 10.8 7"/></svg>';
+
+  const WARN_ICON = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M8 2.2 14.3 13.3H1.7z" stroke-linejoin="round"/><path d="M8 6.4v3.3M8 11.4v.1" stroke-linecap="round"/></svg>';
 
   function statusParts() {
     const f = limit('five'), w = limit('week');
@@ -668,8 +774,8 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
 `;
 
   const FORM_NOTES = {
-    bottom: ['Bottenpanel, bredvid Terminal', 'Bred och låg. Gränser, session och historik ligger i tre kolumner, och förslaget är en rad överst som fälls ut. Klicka på Tokeniser i statusraden för att visa eller dölja vyn.'],
-    side: ['Högra sidopanelen', 'Valbar placering. Samma innehåll staplas i en smal kolumn som rullar, med gränserna först. Terminalen får hela bottenpanelen.'],
+    bottom: ['Bottenpanel, bredvid Terminal', 'Bred och låg. Hälsoraden och förslaget ligger överst och fälls ut. Under dem ligger gränser, session och historik i tre kolumner. Klicka på Tokeniser i statusraden för att visa eller dölja vyn.'],
+    side: ['Högra sidopanelen', 'Valbar placering. Samma innehåll staplas i en smal kolumn som rullar: hälsoraden, gränserna, förslaget, sessionen och historiken. Terminalen får hela bottenpanelen.'],
     card: ['Snabbkort vid statusraden', 'Visas bara när musen hålls över statusraden. Det är ett verktygstips, så det har en statisk bild, prognos och länkar, men inga skript och ingen rörelse. Länken <b>Öppna Tokeniser</b> öppnar vyn.'],
   };
   const STATE_NOTES = {
@@ -678,17 +784,24 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
     aterstalld: ['Återställd', '<code>rate_limits.five_hour.resets_at</code> passerade kl. 15:00. Ringen visar Återställd, aldrig 0 %, tills nästa svar ger en ny siffra. Veckan är samtidigt Äldre, och förslaget gäller en cachemiss.'],
     saknas: ['Saknas', 'Sessionen har inte fått något svar än, så <code>rate_limits</code> och kontextens användning saknas. Varje ruta säger vad som saknas i stället för att visa 0. Historiken från tidigare dagar finns kvar.'],
   };
+  const HEALTH_NOTES = {
+    ok: ['Allt i ordning', 'Hälsoraden är ihopfälld och tar en rad. Ett fält som saknas av en dokumenterad orsak, till exempel före första svaret eller efter en återställning, räknas som i ordning. Byt datatillstånd och fäll ut raden för att se orsaken.'],
+    falt: ['Fält saknas utan känd orsak', 'Veckogränsen har saknats i flera svar fast fönstret inte har återställts, vilket är risk R1. Raden fälls ut av sig själv, statusraden får en varningsikon och ringen hänvisar till Hälsa.'],
+    insamlare: ['Insamlaren ändrad', 'Kontrollsumman stämmer inte med den som sparades vid anslutningen, och texten säger att kontrollen bara upptäcker ändringen. Statusraden får en ikon men ingen bakgrundsfärg, eftersom varningsfärgen redan betyder 80 % och VS Code färgar hela posten på en gång.'],
+    projekt: ['Projektets statusrad', '<code>.claude/settings.local.json</code> i fönstrets mapp sätter en egen <code>statusLine</code>, så projektet skickar ingen data. Gränserna kommer från andra sessioner, kontexten från senaste sessionen totalt, och terminalen visar projektets egen rad.'],
+  };
   const RCV = { aktuell: () => `mottaget ${vals.received}`, aldre: () => 'mottaget 14:28:03', aterstalld: () => 'mottaget 12:58:40', saknas: () => 'mottaget 15:07:52 · rate_limits saknas' };
 
   function updateChrome() {
     const s = statusText();
-    sbTk.innerHTML = `${GAUGE_ICON}${ui.state === 'aldre' && ui.mode !== 'ctx' ? CLOCK_ICON : ''}<span>${s.text}</span>`;
+    const warn = ui.health !== 'ok';
+    sbTk.innerHTML = `${GAUGE_ICON}${warn ? WARN_ICON : ''}${ui.state === 'aldre' && ui.mode !== 'ctx' ? CLOCK_ICON : ''}<span>${s.text}</span>`;
     sbTk.className = `sb sb-tk${s.level ? ' ' + s.level : ''}`;
-    sbTk.setAttribute('aria-label', `Tokeniser: ${s.text}. Klicka för att visa eller dölja vyn.`);
+    sbTk.setAttribute('aria-label', `Tokeniser: ${s.text}.${warn ? ` Hälsovarning: ${HEALTH_TITLE[ui.health]}.` : ''} Klicka för att visa eller dölja vyn.`);
     const sig = $('#sig');
     sig.textContent = s.text;
     sig.className = `sig${s.level ? ' ' + s.level : ''}`;
-    $('#term').innerHTML = (ui.state === 'saknas' ? TERM_NEW : TERM_REPLY) + s.line;
+    $('#term').innerHTML = (ui.state === 'saknas' ? TERM_NEW : TERM_REPLY) + (ui.health === 'projekt' ? '<span class="t-dim">tokeniser · main · projektets egen statusrad</span>' : s.line);
     card.innerHTML = cardHTML();
     $$('[data-rcv]').forEach(el => el.textContent = RCV[ui.state]());
     const fn = FORM_NOTES[ui.form], sn = STATE_NOTES[ui.state];
@@ -696,6 +809,9 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
     $('#note-form-text').innerHTML = fn[1];
     $('#note-state-title').textContent = sn[0];
     $('#note-state-text').innerHTML = sn[1];
+    const hn = HEALTH_NOTES[ui.health];
+    $('#note-health-title').textContent = hn[0];
+    $('#note-health-text').innerHTML = hn[1];
   }
 
   function activeView() {
@@ -800,8 +916,16 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
     const link = e.target.closest('[data-open-view]');
     if (link) {
       e.preventDefault();
-      if (link.textContent.includes('förslag')) ui.suggOpen = true;
+      if (link.dataset.openView === 'sugg') ui.suggOpen = true;
+      if (link.dataset.openView === 'health') ui.healthOpen = true;
       openView();
+      return;
+    }
+    const hlToggle = e.target.closest('#hl-toggle');
+    if (hlToggle) {
+      ui.healthOpen = !ui.healthOpen;
+      $$('.hl', vsc).forEach(h => h.dataset.open = String(ui.healthOpen));
+      hlToggle.setAttribute('aria-expanded', String(ui.healthOpen));
       return;
     }
     const toggle = e.target.closest('#sugg-toggle');
@@ -824,14 +948,16 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   document.querySelectorAll('input[name="form"]').forEach(r => r.addEventListener('change', () => { ui.form = r.value; ui.open = true; card.classList.remove('show'); apply({ fade: true }); }));
   document.querySelectorAll('input[name="theme"]').forEach(r => r.addEventListener('change', () => { ui.theme = r.value; apply(); }));
   document.querySelectorAll('input[name="state"]').forEach(r => r.addEventListener('change', () => { ui.state = r.value; vals = base(); apply({ fade: true }); }));
+  document.querySelectorAll('input[name="health"]').forEach(r => r.addEventListener('change', () => { ui.health = r.value; ui.healthOpen = r.value !== 'ok'; vals = base(); apply({ fade: true }); }));
   $('#sbmode').addEventListener('change', e => { ui.mode = e.target.value; updateChrome(); });
   const reduceBox = $('#reduce');
   reduceBox.checked = ui.reduce;
   reduceBox.addEventListener('change', () => { ui.reduce = reduceBox.checked; vsc.classList.toggle('reduce', ui.reduce); });
   $('#sim').addEventListener('click', simulate);
   $('#reset').addEventListener('click', () => {
-    vals = base(); ui.state = 'aktuell'; ui.suggOpen = false; ui.open = true;
+    vals = base(); ui.state = 'aktuell'; ui.suggOpen = false; ui.open = true; ui.health = 'ok'; ui.healthOpen = false;
     $('#state-aktuell').checked = true;
+    $('#health-ok').checked = true;
     apply({ fade: true });
   });
 
