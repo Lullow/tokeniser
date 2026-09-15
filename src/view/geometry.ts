@@ -10,6 +10,15 @@ export function shortTokens(value: number): string {
   return String(Math.round(value));
 }
 
+const upToOneDecimal = new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 1 });
+
+/** Axis labels without a trailing ",0": "0", "500 k", "2,5 M", "100 M". */
+export function axisTokens(value: number): string {
+  if (value >= 1_000_000) return `${upToOneDecimal.format(value / 1_000_000)}${NBSP}M`;
+  if (value >= 1_000) return `${upToOneDecimal.format(value / 1_000)}${NBSP}k`;
+  return upToOneDecimal.format(value);
+}
+
 /** The smallest 1, 2 or 5 times a power of ten that is at least max. */
 export function niceMax(max: number): number {
   if (!(max > 0)) return 1;
@@ -31,6 +40,8 @@ export interface CurveGeometry {
   height: number;
   plotLeft: number;
   plotRight: number;
+  /** Where the right-aligned axis labels end. */
+  axisX: number;
   points: { x: number; y: number }[];
   /** Every day but today. */
   line: string;
@@ -43,12 +54,29 @@ export interface CurveGeometry {
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
-export function curveGeometry(values: readonly number[], labels: readonly string[], width = 280, height = 112): CurveGeometry {
-  const plotLeft = 34;
-  const plotRight = width - 16;
-  const top = 8;
-  const baseline = height - 20;
+/** The chart height in pixels; the view reserves the same height before it is drawn. */
+export const CURVE_HEIGHT = 128;
+/** A generous width per character of 11 px axis text: digits, spaces, "k" and "M". */
+const CHAR_PX = 6.5;
+const AXIS_GAP = 6;
+const EDGE = 2;
+
+const textWidth = (text: string): number => Math.ceil(text.length * CHAR_PX);
+
+/**
+ * Laid out in the real pixels of its box, so the text keeps its size in a wide column. The
+ * left margin fits the longest axis label and the right margin half of the last day label.
+ */
+export function curveGeometry(values: readonly number[], labels: readonly string[], boxWidth = 280, height = CURVE_HEIGHT): CurveGeometry {
+  const width = Math.max(160, Math.floor(boxWidth));
   const max = niceMax(Math.max(0, ...values));
+  const steps = [0, max / 2, max];
+  const axisLabels = steps.map(axisTokens);
+  const axisX = EDGE + Math.max(...axisLabels.map(textWidth));
+  const plotLeft = axisX + AXIS_GAP;
+  const plotRight = width - EDGE - Math.ceil(textWidth(labels.at(-1) ?? "") / 2);
+  const top = 10;
+  const baseline = height - 22;
   const x = (i: number): number => (values.length <= 1 ? plotRight : plotLeft + (i * (plotRight - plotLeft)) / (values.length - 1));
   const y = (v: number): number => top + (baseline - top) * (1 - Math.max(0, v) / max);
   const points = values.map((v, i) => ({ x: round1(x(i)), y: round1(y(v)) }));
@@ -61,11 +89,12 @@ export function curveGeometry(values: readonly number[], labels: readonly string
     height,
     plotLeft,
     plotRight,
+    axisX,
     points,
     line: points.length >= 3 ? path(points.slice(0, -1)) : "",
     today: points.length >= 2 ? path(points.slice(-2)) : "",
     area: first !== undefined && last !== undefined ? `${path(points)} L${last.x} ${baseline} L${first.x} ${baseline} Z` : "",
-    gridlines: [0, max / 2, max].map((v) => ({ y: round1(y(v)), label: shortTokens(v) })),
+    gridlines: steps.map((v, i) => ({ y: round1(y(v)), label: axisLabels[i] ?? "" })),
     labels: labels.map((text, i) => ({ x: round1(x(i)), text })),
   };
 }

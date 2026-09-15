@@ -189,20 +189,23 @@ function sessionView(model: ViewModel, before: ViewModel | null): HTMLElement {
   return node;
 }
 
-function curveView(days: readonly DayModel[]): SVGSVGElement {
+function curveView(days: readonly DayModel[], width: number): SVGSVGElement {
   const geometry = curveGeometry(
     days.map((day) => day.tokens),
     days.map((day) => day.label),
+    width,
   );
   const chart = svgEl("svg", {
     viewBox: `0 0 ${geometry.width} ${geometry.height}`,
+    width: geometry.width,
+    height: geometry.height,
     class: "curve",
     role: "img",
     "aria-label": `Tokens per dag, uppskattning: ${days.map((day) => `${day.label} ${shortTokens(day.tokens)}`).join(", ")}`,
   });
   for (const line of geometry.gridlines) {
     chart.append(svgEl("line", { x1: geometry.plotLeft, x2: geometry.plotRight, y1: line.y, y2: line.y, class: "gridline" }));
-    const label = svgEl("text", { x: geometry.plotLeft - 6, y: line.y + 3, "text-anchor": "end", class: "axis" });
+    const label = svgEl("text", { x: geometry.axisX, y: line.y + 4, "text-anchor": "end", class: "axis" });
     label.textContent = line.label;
     chart.append(label);
   }
@@ -225,7 +228,8 @@ function historyView(model: ViewModel): HTMLElement {
   total.append(`${shortTokens(model.history.total)} tokens `, badge("uppskattning"));
   const projectsHeading = heading("I dag per projekt");
   projectsHeading.classList.add("heading-sub");
-  node.append(heading("7 dagar", total), curveView(model.history.days), projectsHeading);
+  // Drawn by drawCurve once the box is in the document and has a width.
+  node.append(heading("7 dagar", total), el("div", "curve-box"), projectsHeading);
 
   if (model.history.projects.length === 0) {
     node.append(el("p", "muted small", "Ingen användning i dag ännu."));
@@ -426,6 +430,7 @@ function render(model: ViewModel): void {
   if (suggestions !== null) grid.append(suggestions);
   grid.append(sessionView(model, before), historyView(model));
   root.replaceChildren(top, ...health, grid);
+  drawCurve();
 
   if (focusKey !== undefined) root.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focusKey)}"]`)?.focus();
   if (document.scrollingElement !== null) document.scrollingElement.scrollTop = scroll;
@@ -452,5 +457,17 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
   if (message.type === "model") render(message.model);
   else if (message.type === "copied") markCopied(message.command);
 });
+
+/** The chart is laid out in the box's real pixels, so its text keeps its size in a wide column. */
+function drawCurve(): void {
+  const box = root.querySelector<HTMLElement>(".curve-box");
+  if (box === null || previous === null) return;
+  const width = Math.floor(box.clientWidth);
+  if (width <= 0 || box.dataset.width === String(width)) return;
+  box.dataset.width = String(width);
+  box.replaceChildren(curveView(previous.history.days, width));
+}
+
+new ResizeObserver(() => drawCurve()).observe(root);
 
 vscode.postMessage({ type: "ready" });

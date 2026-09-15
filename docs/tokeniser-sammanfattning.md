@@ -320,6 +320,8 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - `statusLine`, `disableAllHooks` och `allowManagedHooksOnly` i organisationens, användarens och fönstrets inställningar, i den ordning Claude Code använder dem
 
      Inställningsfiler från organisationen och från repon läses bara för inspektion: inga symboliska länkar, inga FIFO-filer, högst 1 MiB och bara de tre nycklarna. En symbolisk länk högre upp i sökvägen, till exempel en `.claude`-mapp som är en länk, följs däremot. Det är godtaget eftersom inget från filen visas eller sparas.
+   - **Rättat 2026-09-15:** kurvan över 7 dagar klippte "100,0 M" och fick större text i breda kolumner. Den ritas nu i rutans verkliga pixlar med fast höjd och 11 px text, och axelns etiketter har inga onödiga decimaler ("100 M").
+   - **Upptäckt 2026-09-15, inte utrett:** testerna för samtidig inläsning faller ibland med `database is locked` när datorn är belastad, till exempel när testsviterna körs samtidigt. De går igenom när de körs ensamma. Två VS Code-fönster som startar samtidigt kan därför tillfälligt visa "Kan inte läsa Tokenisers data".
 
 ---
 

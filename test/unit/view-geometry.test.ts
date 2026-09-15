@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { curveGeometry, niceMax, ringDash, shortTokens } from "../../src/view/geometry.ts";
+import { axisTokens, CURVE_HEIGHT, curveGeometry, niceMax, ringDash, shortTokens } from "../../src/view/geometry.ts";
+
+/** Labels keep the number and its unit together with a hard space. */
+const nb = (text: string): string => text.replaceAll(" ", " ");
+const DAYS = ["ons", "tor", "fre", "lör", "sön", "mån", "i dag"];
 
 test("korta tokenbelopp", () => {
   assert.equal(shortTokens(0), "0");
   assert.equal(shortTokens(850), "850");
-  assert.equal(shortTokens(214_800), "215 k");
-  assert.equal(shortTokens(12_700_000), "12,7 M");
+  assert.equal(shortTokens(214_800), nb("215 k"));
+  assert.equal(shortTokens(12_700_000), nb("12,7 M"));
 });
 
 test("jämn skala uppåt", () => {
@@ -31,12 +35,40 @@ test("kurvan håller sig inom ytan och ritar i dag för sig", () => {
   assert.equal(geometry.today.split("L").length, 2);
   assert.deepEqual(
     geometry.gridlines.map((line) => line.label),
-    ["0", "25,0 M", "50,0 M"],
+    ["0", nb("25 M"), nb("50 M")],
   );
   assert.equal(geometry.labels.at(-1)?.text, "i dag");
 
   const empty = curveGeometry([], []);
   assert.deepEqual([empty.line, empty.today, empty.area], ["", "", ""]);
+});
+
+test("axelns etiketter har inga onödiga decimaler", () => {
+  assert.deepEqual(
+    [0, 5, 500, 2_500, 500_000, 2_500_000, 50_000_000, 100_000_000].map(axisTokens),
+    ["0", "5", "500", nb("2,5 k"), nb("500 k"), nb("2,5 M"), nb("50 M"), nb("100 M")],
+  );
+});
+
+test("axelns etiketter får plats, och texten växer inte med kolumnens bredd", () => {
+  const values = [0, 0, 0, 0, 0, 30e6, 56.3e6];
+  const narrow = curveGeometry(values, DAYS, 340);
+  const wide = curveGeometry(values, DAYS, 700);
+  assert.deepEqual(
+    wide.gridlines.map((line) => line.label),
+    ["0", nb("50 M"), nb("100 M")],
+  );
+  for (const geometry of [narrow, wide]) {
+    const longest = Math.max(...geometry.gridlines.map((line) => line.label.length));
+    assert.ok(geometry.axisX - longest * 6.5 >= 0, "y-axelns längsta etikett börjar innanför ytan");
+    assert.ok(geometry.axisX < geometry.plotLeft, "etiketterna slutar före kurvan");
+    assert.ok(geometry.plotRight + ("i dag".length * 6.5) / 2 <= geometry.width, "sista dagen får plats");
+    assert.equal(geometry.height, CURVE_HEIGHT);
+  }
+  assert.equal(narrow.width, 340);
+  assert.equal(wide.width, 700);
+  assert.equal(narrow.plotLeft, wide.plotLeft, "vänstermarginalen beror på etiketterna, inte på bredden");
+  assert.equal(curveGeometry(values, DAYS, 40).width, 160);
 });
 
 test("ringens streck motsvarar förbrukad andel", () => {

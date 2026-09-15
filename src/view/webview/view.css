@@ -308,9 +308,14 @@ body {
 
 /* History */
 
+/* The same height as CURVE_HEIGHT, so nothing jumps before the chart is drawn. */
+.curve-box {
+  min-height: 128px;
+}
+
 .curve {
   display: block;
-  width: 100%;
+  max-width: 100%;
   height: auto;
 }
 
@@ -319,9 +324,10 @@ body {
   stroke-width: 1;
 }
 
+/* Matches CHAR_PX in geometry.ts, which reserves room for the labels. */
 .curve .axis {
   fill: var(--vscode-descriptionForeground);
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .curve .area {
