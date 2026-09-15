@@ -1,8 +1,15 @@
-import { readdirSync } from "node:fs";
+import { accessSync, constants, lstatSync, readdirSync, type Stats } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { collectorLayout, parseConnectionState, type CollectorLayout, type ConnectionState } from "../connect/plan.ts";
+import {
+  collectorLayout,
+  ENV_PATH,
+  parseConnectionState,
+  statusLineCommand,
+  type CollectorLayout,
+  type ConnectionState,
+} from "../connect/plan.ts";
 import {
   assertPrivateDir,
   assertTrustedAncestors,
@@ -17,9 +24,11 @@ import {
   RECENT_MS,
   type CollectorFacts,
   type DataFacts,
+  type ExecutableCheck,
   type HealthFacts,
   type Outcome,
   type ProblemCount,
+  type RuntimeFacts,
   type SettingsFacts,
   type SettingsFile,
 } from "./model.ts";
@@ -200,6 +209,56 @@ function checkDirectories(layout: CollectorLayout, uid: number): null {
   return null;
 }
 
+/** Error messages name full paths; the health row shows the home directory as ~, like its other text. */
+const shorten = (text: string): string => text.replaceAll(`${homedir()}/`, "~/");
+
+/** The same rules as when connecting: Node may belong to you, for example from nvm; env must belong to root. */
+function checkExecutable(path: string, owners: "root" | "root-or-you", uid: number): ExecutableCheck {
+  const file = display(path);
+  let st: Stats;
+  try {
+    st = lstatSync(path);
+  } catch (error) {
+    if (errnoCode(error) === "ENOENT" || errnoCode(error) === "ENOTDIR") return { file, status: "missing" };
+    throw error;
+  }
+  try {
+    if (st.isSymbolicLink()) throw new UnsafePathError(path, "är en symbolisk länk");
+    if (!st.isFile()) throw new UnsafePathError(path, "är inte en vanlig fil");
+    if (st.uid !== 0 && (owners === "root" || st.uid !== uid)) throw new UnsafePathError(path, `ägs av uid ${st.uid}`);
+    if ((st.mode & 0o022) !== 0) throw new UnsafePathError(path, `är skrivbar för andra (${(st.mode & 0o7777).toString(8).padStart(4, "0")})`);
+    assertTrustedAncestors(path, uid);
+  } catch (error) {
+    if (error instanceof UnsafePathError) return { file, status: "unsafe", reason: shorten(error.message) };
+    throw error;
+  }
+  try {
+    accessSync(path, constants.X_OK);
+  } catch {
+    return { file, status: "not-executable" };
+  }
+  return { file, status: "ok" };
+}
+
+/** The Node file comes from the saved command, which must be exactly the one Tokeniser builds for it. */
+function readRuntime(layout: CollectorLayout, state: ConnectionState, uid: number): RuntimeFacts {
+  const parts = state.command.split(" ");
+  const nodePath = parts[0] === ENV_PATH && parts[1] === "-i" && parts[2]?.startsWith("/") === true ? parts[2] : null;
+  let commandMatches = false;
+  if (nodePath !== null) {
+    try {
+      commandMatches = statusLineCommand(nodePath, layout) === state.command;
+    } catch {
+      commandMatches = false;
+    }
+  }
+  return {
+    commandMatches,
+    node: nodePath === null ? null : checkExecutable(nodePath, "root-or-you", uid),
+    env: checkExecutable(ENV_PATH, "root", uid),
+  };
+}
+
 /** Settings are untrusted input: only statusLine, disableAllHooks and allowManagedHooksOnly are looked at. */
 function inspectSettings(path: string, shown: string, command: string): SettingsFile | null {
   const bytes = readRegularFile(path, SETTINGS_MAX_BYTES);
@@ -264,9 +323,8 @@ function readSettings(input: HealthInput, command: string): SettingsFacts {
   return { managed, user, folders, unreadable };
 }
 
-/** Error messages name full paths; the health row shows the home directory as ~, like its other text. */
 function shortenPaths<T>(outcome: Outcome<T>): Outcome<T> {
-  return outcome.ok ? outcome : { ok: false, error: outcome.error.replaceAll(`${homedir()}/`, "~/") };
+  return outcome.ok ? outcome : { ok: false, error: shorten(outcome.error) };
 }
 
 /** Never throws: every part that cannot be read becomes an outcome with the reason. */
@@ -274,6 +332,7 @@ export function readHealthFacts(input: HealthInput): HealthFacts {
   const uid = input.uid ?? currentUid();
   const layout = collectorLayout(input.home);
   const connection = attempt(() => readConnection(layout, uid));
+  const unknownCommand = { ok: false, error: `kommandot från anslutningen är okänt. ${connection.ok ? "" : connection.error}` } as const;
   const index = input.index;
   return {
     checkedAt: input.now,
@@ -282,10 +341,7 @@ export function readHealthFacts(input: HealthInput): HealthFacts {
     problems: shortenPaths(attempt(() => readProblems(input.home, input.now, uid))),
     collector: shortenPaths(connection.ok ? attempt(() => readCollector(layout, connection.value, uid)) : connection),
     directories: shortenPaths(attempt(() => checkDirectories(layout, uid))),
-    settings: shortenPaths(
-      connection.ok
-        ? attempt(() => readSettings(input, connection.value.command))
-        : { ok: false, error: `kommandot från anslutningen är okänt. ${connection.error}` },
-    ),
+    runtime: shortenPaths(connection.ok ? attempt(() => readRuntime(layout, connection.value, uid)) : unknownCommand),
+    settings: shortenPaths(connection.ok ? attempt(() => readSettings(input, connection.value.command)) : unknownCommand),
   };
 }

@@ -62,6 +62,7 @@ Starta en utvecklingsinstans med F5 ("Kör extension"). Extensionen körs inne i
   - fält som saknas och varför
   - om insamlaren har ändrats
   - om Tokenisers mappar är skyddade
+  - om Node-filen och `/usr/bin/env` finns, är körbara och är skyddade
   - om en annan inställning tar över eller stänger av statusraden
 
   Vid varning får statusraden en ikon, och snabbkortet får en rad med länken "Visa hälsa". Inställningsfiler läses bara för inspektion, och `~/.claude.json` läses aldrig, eftersom den innehåller inloggningen.

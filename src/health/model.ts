@@ -39,6 +39,20 @@ export interface CollectorFacts {
   actualSha256: string;
 }
 
+export type ExecutableCheck =
+  | { file: string; status: "ok" }
+  | { file: string; status: "missing" }
+  | { file: string; status: "not-executable" }
+  | { file: string; status: "unsafe"; reason: string };
+
+export interface RuntimeFacts {
+  /** The saved command is exactly the one Tokeniser builds for this Node file and ~/.tokeniser. */
+  commandMatches: boolean;
+  /** Null when the command names no Node file. */
+  node: ExecutableCheck | null;
+  env: ExecutableCheck;
+}
+
 export interface SettingsFile {
   /** As shown to the user, for example ~/.claude/settings.json. */
   file: string;
@@ -69,6 +83,7 @@ export interface HealthFacts {
   problems: Outcome<ProblemCount[]>;
   collector: Outcome<CollectorFacts>;
   directories: Outcome<null>;
+  runtime: Outcome<RuntimeFacts>;
   settings: Outcome<SettingsFacts>;
 }
 
@@ -259,6 +274,63 @@ function directoriesCheck(facts: HealthFacts): Finding {
 }
 
 /**
+ * Known gap 7, accepted: the content of Node and env is not compared. Only code running as you can
+ * change it, which is outside the threat model and could rewrite connection.json as well. What
+ * other users could do is checked: the files exist, run, and nobody else can write to them.
+ */
+function runtimeCheck(facts: HealthFacts): Finding {
+  const label = "Node och env";
+  if (!facts.runtime.ok) return finding("runtime", label, "unknown", `Kan inte kontrolleras: ${plain(facts.runtime.error)}`);
+  const { commandMatches, node, env } = facts.runtime.value;
+  const issues: Issue[] = [];
+  const actions = new Set<string>();
+  let disconnect = false;
+  const reconnect = "Koppla från och anslut igen, så används den Node som kör anslutningen.";
+
+  if (!commandMatches) {
+    issues.push({
+      title: "Kommandot i anslutningen är inte Tokenisers",
+      text: "Kommandot i `connection.json` är inte det som Tokeniser skapar för Node och `~/.tokeniser`.",
+    });
+    actions.add(reconnect);
+    disconnect = true;
+  }
+  for (const { check, name } of [
+    { check: node, name: "Node-filen" },
+    { check: env, name: "/usr/bin/env" },
+  ]) {
+    if (check === null || check.status === "ok") continue;
+    const file = `\`${plain(check.file)}\``;
+    if (check.status === "missing") {
+      const nvm = name === "Node-filen" ? " Det händer till exempel när en Node-version avinstalleras med nvm." : "";
+      issues.push({ title: `${name} saknas`, text: `${file} finns inte, så Claude Code kan inte köra insamlaren.${nvm}` });
+      actions.add(reconnect);
+      disconnect = true;
+    } else if (check.status === "not-executable") {
+      issues.push({ title: `${name} är inte körbar`, text: `${file} är inte körbar, så Claude Code kan inte köra insamlaren.` });
+      actions.add("Gör filen körbar igen, eller koppla från och anslut igen.");
+    } else {
+      issues.push({ title: `${name} är inte skyddad`, text: `${plain(check.reason)} Andra användare skulle kunna byta ut det som Claude Code kör.` });
+      actions.add("Rätta ägare och rättigheter.");
+    }
+  }
+
+  const first = issues[0];
+  if (first !== undefined) {
+    const extra = { title: first.title, action: [...actions].join(" "), ...(disconnect ? { command: DISCONNECT_COMMAND } : {}) };
+    return finding("runtime", label, "warning", issues.map((issue) => issue.text).join(" "), extra);
+  }
+  const nodeFile = node === null ? "Node" : `\`${plain(node.file)}\``;
+  return finding(
+    "runtime",
+    label,
+    "ok",
+    `${nodeFile} och \`${plain(env.file)}\` finns och är körbara, och ingen annan än du eller root kan skriva i dem eller i mapparna ovanför. ` +
+      "Innehållet jämförs inte: bara kod som körs som du kan ändra det, och den ligger utanför hotmodellen.",
+  );
+}
+
+/**
  * Settings precedence in Claude Code: managed, command line, project local, shared project,
  * user. A higher level replaces statusLine and disableAllHooks from the levels below it.
  */
@@ -345,7 +417,7 @@ export function buildHealth(facts: HealthFacts, now: number): HealthModel {
     collectorCheck(facts, now),
     directoriesCheck(facts),
     statusLineCheck(facts),
-    finding("node", "Node-filen", "unchecked", "Kontrolleras inte än. Hashen sparas inte vid anslutningen, och det läggs till i ett eget steg."),
+    runtimeCheck(facts),
     finding("out-of-reach", "Utom räckhåll", "unknown", OUT_OF_REACH),
   ];
   const warnings = findings.filter((f) => f.check.mark === "warning");

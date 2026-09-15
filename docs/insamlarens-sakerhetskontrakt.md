@@ -94,7 +94,11 @@ Testerna finns i `test/unit/` och `test/e2e/` och körs med `npm test`.
 4. **stdin läses i sin helhet** innan storleksgränsen på 1 MiB kontrolleras.
 5. **Fritext rensas inte från kontrolltecken** innan den sparas. Terminalraden påverkas inte, men vyn och framtida kommandon måste escapa texten.
 6. **`problems.jsonl` och `state/` växer utan gräns.**
-7. **Node-filen kan ändras av din användare.** Dess hash kontrolleras bara när planen görs.
+7. **Node-filens innehåll jämförs inte efter anslutningen. Luckan är godtagen (2026-09-15).**
+   - Hashen binder bara planen till godkännandet.
+   - Med Node från nvm ägs filen av din användare. Bara kod som körs som du kan då ändra den, och sådan kod ligger utanför hotmodellen. Den kan dessutom skriva om `connection.json`, så en sparad hash skulle inte skydda.
+   - Hälsokontrollen kontrollerar i stället det som andra användare skulle kunna påverka: att Node-filen och `/usr/bin/env` finns och är körbara, att de har rätt ägare, att ingen annan kan skriva i dem eller i mapparna ovanför, och att kommandot är exakt det Tokeniser skapar.
+   - Luckan tas upp igen inför en publicering. Då behöver kontrollen också fungera med Node från apt, som byts vid varje uppgradering.
 
 ## 9. Anslutningsskriptet
 

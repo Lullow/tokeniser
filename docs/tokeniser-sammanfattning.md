@@ -311,7 +311,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - Vid varning får statusraden en ikon men ingen bakgrundsfärg, eftersom varningsfärgen redan betyder 80 % av en gräns.
      - Den läser aldrig `~/.claude.json`, eftersom filen också innehåller inloggningen. Om en mapp är betrodd i Claude Code går därför inte att kontrollera, och inte heller `--settings`, inställningar från claude.ai, Windows-policy eller sessioner som startas i en undermapp.
      - Kontrollsumman upptäcker en ändrad insamlare men hindrar den inte. Det står i gränssnittet.
-     - Node-filens hash (kontraktets lucka 7) blir ett eget steg efter hälsokontrollen, eftersom det ändrar formatet på `connection.json` och kräver ny anslutning.
+     - Node-filens hash (kontraktets lucka 7) blir ett eget steg efter hälsokontrollen, eftersom det ändrar formatet på `connection.json` och kräver ny anslutning. Beslutet ändrades samma dag, se nedan.
    - **Klart 2026-09-15:** hälsokontrollen (punkt 7) enligt skissen. Den körs vid varje uppdatering och kontrollerar:
      - senaste data och vilken session den kom från
      - fält som saknas och varför, avvisade körningar och ogiltiga fält senaste dygnet
@@ -324,6 +324,11 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
    - **Rättat 2026-09-15:** samtidiga processer mot indexet kunde ge "Kan inte läsa Tokenisers data". Två orsaker hittades med ett skript som startade upp till fem processer mot samma index i hundratals omgångar:
      1. **Nytt index:** `PRAGMA journal_mode = WAL` kräver ensamrätt. SQLite svarade `database is locked` efter 1 ms i stället för att vänta ut `busy_timeout`, i 7 av 240 processer. Nu byts läget bara när indexet inte redan är i WAL-läge. Bytet görs om i högst 5 sekunder, och resultatet kontrolleras.
      2. **Befintligt index:** när den sista anslutningen i ett annat fönster stängs tar SQLite bort `index.sqlite-wal`. Kontrollen före öppningen kunde då se en fil med 0 hårda länkar och kasta ett falsklarm, i 5 av 120 processer som öppnade och stängde indexet 40 gånger var. Nu räknas en fil med 0 länkar som borttagen när den bara läses. Skrivningar avbryts som förut, och 2 eller fler länkar avvisas fortfarande.
+   - **Beslutat och klart 2026-09-15:** Node-filens hash byggs inte, och kontraktets lucka 7 är godtagen.
+     - En sparad hash skyddar bara mot kod som körs som du. Sådan kod ligger utanför hotmodellen och kan också skriva om `connection.json`.
+     - Hashen skulle kosta en ny anslutning och cirka 180 ms per beräkning.
+
+     Hälsokontrollen har i stället fått raden "Node och env". Den kontrollerar att Node-filen i kommandot och `/usr/bin/env` finns och är körbara, att de har rätt ägare (root eller du för Node, root för env) och att ingen annan kan skriva i dem eller i mapparna ovanför. Den kontrollerar också att kommandot är exakt det Tokeniser skapar. Det täcker det troligaste felet, att Node-versionen avinstalleras med nvm så att insamlaren tyst slutar fungera, och det kräver ingen ny anslutning.
 
 ---
 

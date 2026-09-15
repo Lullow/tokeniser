@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { buildHealth, type HealthFacts } from "../../src/health/model.ts";
+import { collectorLayout, statusLineCommand } from "../../src/connect/plan.ts";
+import { buildHealth, type HealthFacts, type RuntimeFacts } from "../../src/health/model.ts";
 import { readHealthFacts } from "../../src/health/read.ts";
 import { openIndex } from "../../src/index/db.ts";
 import { ingest } from "../../src/index/ingest.ts";
@@ -12,7 +14,6 @@ import { appendEvents, eventLine, makeStore } from "../helpers/events.ts";
 
 const MIN = 60_000;
 const NOW = Date.UTC(2026, 8, 15, 11, 0);
-const COMMAND = "/usr/bin/env -i /usr/bin/node --permission /home/user/.tokeniser/bin/collector.cjs --home=/home/user/.tokeniser";
 const COLLECTOR = "insamlarens kod";
 
 interface Setup {
@@ -28,9 +29,10 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value));
 }
 
-function setup(collector = COLLECTOR): Setup {
+function setup(collector = COLLECTOR, nodePath = realpathSync(process.execPath)): Setup {
   const home = makeStore();
   const root = dirname(home);
+  const COMMAND = statusLineCommand(nodePath, collectorLayout(home));
   ensurePrivateDir(join(home, "bin"));
   ensurePrivateDir(join(home, "backup"));
   writeFileSync(join(home, "bin", "collector.cjs"), collector, { mode: 0o600 });
@@ -85,6 +87,10 @@ test("hälsokontrollen läser insamlaren, mapparna, inställningarna och indexet
   if (!f.data.ok) assert.fail(f.data.error);
   assert.equal(f.data.value.latest?.sessionId, "344a3a30-80ce");
   assert.deepEqual(f.problems, { ok: true, value: [] });
+  if (!f.runtime.ok) assert.fail(f.runtime.error);
+  assert.equal(f.runtime.value.commandMatches, true);
+  assert.equal(f.runtime.value.node?.status, "ok");
+  assert.deepEqual(f.runtime.value.env, { file: "/usr/bin/env", status: "ok" });
 
   const health = buildHealth(f, NOW);
   assert.equal(health.level, "ok", JSON.stringify(health.checks, null, 2));
@@ -175,6 +181,33 @@ test("ogiltiga fält och en gräns som saknas läses från indexet", () => {
   assert.equal(fields?.mark, "warning");
 });
 
+test("en Node-fil som kan skrivas av andra, inte är körbar eller saknas upptäcks, liksom ett främmande kommando", () => {
+  const nodeDir = join(mkdtempSync(join(tmpdir(), "tokeniser-node-")), "bin");
+  mkdirSync(nodeDir);
+  const node = join(nodeDir, "node");
+  writeFileSync(node, "#!/bin/sh\n", { mode: 0o755 });
+  const s = setup(COLLECTOR, node);
+  const runtime = (): RuntimeFacts => {
+    const f = read(s);
+    if (!f.runtime.ok) assert.fail(f.runtime.error);
+    return f.runtime.value;
+  };
+
+  assert.deepEqual(runtime().node, { file: node, status: "ok" });
+  chmodSync(node, 0o775);
+  assert.deepEqual(runtime().node, { file: node, status: "unsafe", reason: `${node} är skrivbar för andra (0775).` });
+  chmodSync(node, 0o644);
+  assert.deepEqual(runtime().node, { file: node, status: "not-executable" });
+  unlinkSync(node);
+  assert.deepEqual(runtime().node, { file: node, status: "missing" });
+  assert.equal(buildHealth(read(s), NOW).checks.find((c) => c.id === "runtime")?.mark, "warning");
+
+  const connection = join(s.home, "connection.json");
+  const state = JSON.parse(readFileSync(connection, "utf8"));
+  writeFileSync(connection, JSON.stringify({ ...state, command: `${state.command} --no-line` }));
+  assert.equal(runtime().commandMatches, false);
+});
+
 test("utan anslutning är insamlaren en varning och inställningarna kan inte kontrolleras", () => {
   const s = setup();
   writeFileSync(join(s.home, "connection.json"), "{}", { mode: 0o600 });
@@ -183,4 +216,5 @@ test("utan anslutning är insamlaren en varning och inställningarna kan inte ko
   assert.equal(byId.get("collector")?.mark, "warning");
   assert.match(byId.get("collector")?.detail ?? "", /connection\.json har ett ogiltigt fält/);
   assert.equal(byId.get("statusline")?.mark, "unknown");
+  assert.equal(byId.get("runtime")?.mark, "unknown");
 });

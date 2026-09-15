@@ -8,6 +8,7 @@ import {
   type HealthFacts,
   type LatestEvent,
   type ProblemCount,
+  type RuntimeFacts,
   type SettingsFacts,
   type SettingsFile,
 } from "../../src/health/model.ts";
@@ -35,8 +36,11 @@ interface Options {
   problems?: ProblemCount[];
   collector?: Partial<CollectorFacts>;
   settings?: Partial<SettingsFacts>;
+  runtime?: Partial<RuntimeFacts>;
   inWindowProject?: boolean | null;
 }
+
+const NODE = "~/.nvm/versions/node/v24.14.1/bin/node";
 
 function facts(o: Options = {}): HealthFacts {
   return {
@@ -63,6 +67,10 @@ function facts(o: Options = {}): HealthFacts {
     problems: { ok: true, value: o.problems ?? [] },
     collector: { ok: true, value: { connectedAt: NOW - 14 * HOUR, expectedSha256: HASH, actualSha256: HASH, ...o.collector } },
     directories: { ok: true, value: null },
+    runtime: {
+      ok: true,
+      value: { commandMatches: true, node: { file: NODE, status: "ok" }, env: { file: "/usr/bin/env", status: "ok" }, ...o.runtime },
+    },
     settings: { ok: true, value: { managed: [], user: file(), folders: [{ name: "tokeniser", local: null, project: null }], unreadable: [], ...o.settings } },
   };
 }
@@ -77,7 +85,7 @@ test("allt i ordning: sju kontroller i fast ordning, och varje läge står i ord
   const health = buildHealth(facts(), NOW);
   assert.equal(health.level, "ok");
   assert.equal(health.title, "Allt i ordning");
-  assert.match(health.summary, /^5 kontroller i ordning · kontrollerat kl\.\s\d{2}:\d{2}$/u);
+  assert.match(health.summary, /^6 kontroller i ordning · kontrollerat kl\.\s\d{2}:\d{2}$/u);
   assert.deepEqual(
     health.checks.map((c) => [c.id, c.mark, c.state]),
     [
@@ -86,7 +94,7 @@ test("allt i ordning: sju kontroller i fast ordning, och varje läge står i ord
       ["collector", "ok", "I ordning"],
       ["directories", "ok", "I ordning"],
       ["statusline", "ok", "I ordning"],
-      ["node", "unchecked", "Kontrolleras inte"],
+      ["runtime", "ok", "I ordning"],
       ["out-of-reach", "unknown", "Kan inte kontrolleras"],
     ],
   );
@@ -203,6 +211,29 @@ test("organisationens inställningar och en statusrad som inte är ansluten ger 
   assert.equal(titleFor({ user: file({ statusLine: "other" }) }), "En annan statusrad har ersatt Tokenisers");
 });
 
+test("Node och env: saknad, icke körbar eller oskyddad fil och ett främmande kommando är varningar", () => {
+  const ok = check(facts(), "runtime");
+  assert.match(ok.detail, /^`~\/\.nvm\/versions\/node\/v24\.14\.1\/bin\/node` och `\/usr\/bin\/env` finns och är körbara/);
+  assert.match(ok.detail, /Innehållet jämförs inte: bara kod som körs som du kan ändra det, och den ligger utanför hotmodellen\.$/);
+  assert.equal(ok.command, null);
+
+  const missing = buildHealth(facts({ runtime: { node: { file: NODE, status: "missing" } } }), NOW);
+  assert.equal(missing.title, "Node-filen saknas");
+  const row = missing.checks.find((c) => c.id === "runtime");
+  assert.match(row?.detail ?? "", /finns inte, så Claude Code kan inte köra insamlaren\. Det händer till exempel när en Node-version avinstalleras med nvm\.$/);
+  assert.equal(row?.command, DISCONNECT_COMMAND);
+
+  const unsafe = buildHealth(facts({ runtime: { env: { file: "/usr/bin/env", status: "unsafe", reason: "/usr/bin/env ägs av uid 1000." } } }), NOW);
+  assert.equal(unsafe.title, "/usr/bin/env är inte skyddad");
+  const unsafeRow = unsafe.checks.find((c) => c.id === "runtime");
+  assert.match(unsafeRow?.detail ?? "", /^\/usr\/bin\/env ägs av uid 1000\. Andra användare skulle kunna byta ut/);
+  assert.equal(unsafeRow?.action, "Rätta ägare och rättigheter.");
+  assert.equal(unsafeRow?.command, null);
+
+  assert.equal(buildHealth(facts({ runtime: { node: { file: NODE, status: "not-executable" } } }), NOW).title, "Node-filen är inte körbar");
+  assert.equal(buildHealth(facts({ runtime: { commandMatches: false, node: null } }), NOW).title, "Kommandot i anslutningen är inte Tokenisers");
+});
+
 test("det som inte går att läsa visas aldrig som i ordning", () => {
   const f = facts();
   f.data = { ok: false, error: "databasen är låst" };
@@ -210,10 +241,11 @@ test("det som inte går att läsa visas aldrig som i ordning", () => {
   f.settings = { ok: false, error: "kommandot från anslutningen är okänt." };
   f.collector = { ok: false, error: "connection.json saknas." };
   f.directories = { ok: false, error: "/home/user/.tokeniser/state har rättigheterna 0755 i stället för 0700." };
+  f.runtime = { ok: false, error: "kommandot från anslutningen är okänt." };
   const health = buildHealth(f, NOW);
   assert.deepEqual(
     health.checks.map((c) => c.mark),
-    ["unknown", "unknown", "warning", "warning", "unknown", "unchecked", "unknown"],
+    ["unknown", "unknown", "warning", "warning", "unknown", "unknown", "unknown"],
   );
   assert.equal(health.checks[2]?.command, DISCONNECT_COMMAND);
   assert.match(health.summary, /^2 varningar · /);
