@@ -309,15 +309,49 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
 .hc-health{margin:8px 0 0;display:flex;gap:6px;align-items:flex-start}
 .hc-health svg{width:14px;height:14px;margin-top:2px;color:var(--warn-ic)}
 
+/* Dataraden, dialoger och aviseringar */
+.tk-wide > .dr{grid-column:1 / -1}
+.dr{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin-top:6px;padding-top:9px;border-top:1px solid var(--border);font-size:12px}
+.dr-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted)}
+.dr-meta{color:var(--fg-muted);font-variant-numeric:tabular-nums}
+.dr-actions{display:flex;flex-wrap:wrap;gap:4px 14px;margin-left:auto}
+.dr-link{border:0;background:none;padding:0;color:var(--link);cursor:pointer;font-size:12px}
+.dr-link:hover{text-decoration:underline}
+.v-overlay{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-start}
+.v-overlay[data-kind="delete"]{align-items:center}
+.v-overlay[hidden],.v-toast[hidden]{display:none}
+.dlg{width:min(470px,90%);background:var(--hover-bg);border:1px solid var(--hover-border);border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,.45);padding:18px 18px 14px;font-size:13px}
+.dlg-body{display:flex;gap:14px}
+.dlg-body > svg{width:30px;height:30px;color:var(--warn-ic);flex:none}
+.dlg-title{margin:0 0 6px;font-weight:600}
+.dlg-detail p{margin:0 0 6px}
+.dlg-detail ul{margin:0 0 6px;padding-left:18px}
+.dlg-detail li{margin:2px 0}
+.dlg-buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.dlg .btn{padding:4px 14px;font-size:13px}
+.qi{margin-top:6px;width:min(620px,92%);background:var(--hover-bg);border:1px solid var(--hover-border);border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,.45);padding:6px;font-size:13px}
+.qi-title{padding:2px 4px 6px;text-align:center;font-size:12px}
+.qi-row{display:flex;gap:6px}
+.qi-input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--fg);background:var(--bg-editor);border:1px solid var(--focus);border-radius:2px;padding:3px 6px}
+.qi-list{list-style:none;margin:4px 0 0;padding:0}
+.qi-list li{padding:3px 8px;border-radius:3px}
+.qi-list li:first-child{background:var(--sb-hover)}
+.v-toast{position:absolute;right:12px;bottom:32px;z-index:15;width:min(430px,80%);display:flex;gap:10px;align-items:flex-start;background:var(--hover-bg);border:1px solid var(--hover-border);border-radius:4px;box-shadow:var(--hover-shadow);padding:10px 12px;font-size:13px}
+.v-toast svg{width:16px;height:16px;flex:none;margin-top:1px;color:var(--link)}
+.v-toast > span{flex:1;min-width:0}
+.v-toast-close{flex:none;border:0;background:none;color:var(--fg-muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.v-toast-close:hover{color:var(--fg)}
+.dlg code,.v-toast code{font-family:var(--mono-ui);font-size:12px;background:var(--code-bg);padding:0 4px;border-radius:3px}
+
 .vsc.reduce *,.vsc.reduce{transition:none !important}
 @media (prefers-reduced-motion: reduce){ .sig{transition:none} }
 </style>
 
 <div class="wrap">
   <header>
-    <p class="eyebrow">Klickbar skiss 1 · 14 sep 2026 · hälsoraden tillagd 15 sep · exempeldata</p>
+    <p class="eyebrow">Klickbar skiss 1 · 14 sep 2026 · hälsoraden och dataraden tillagda 15 sep · exempeldata</p>
     <h1>Tokeniser <code class="sig" id="sig">5h 64% · v 31%</code></h1>
-    <p class="lede">Prova de tre formerna, alla teman och alla fyra datatillstånd. Hälsoraden är ny: välj ett scenario under Hälsa och se raden överst i vyn, ikonen i statusraden och raden i snabbkortet. Alla siffror, sessioner och kontrollsummor är påhittade.</p>
+    <p class="lede">Prova de tre formerna, alla teman och alla fyra datatillstånd. Nytt är dataraden längst ner i vyn: tryck Exportera… och Radera…, och byt Anslutning för att se båda raderingstexterna. Alla siffror, sessioner och kontrollsummor är påhittade.</p>
   </header>
 
   <div class="controls">
@@ -353,6 +387,13 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
         <input type="radio" name="health" id="health-falt" value="falt"><label for="health-falt">Fält saknas</label>
         <input type="radio" name="health" id="health-insamlare" value="insamlare"><label for="health-insamlare">Insamlaren ändrad</label>
         <input type="radio" name="health" id="health-projekt" value="projekt"><label for="health-projekt">Projektets statusrad</label>
+      </div>
+    </fieldset>
+    <fieldset class="seg">
+      <legend>Anslutning</legend>
+      <div class="seg-row">
+        <input type="radio" name="conn" id="conn-yes" value="yes" checked><label for="conn-yes">Ansluten</label>
+        <input type="radio" name="conn" id="conn-no" value="no"><label for="conn-no">Inte ansluten</label>
       </div>
     </fieldset>
     <div class="sel">
@@ -452,6 +493,8 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
       </div>
 
       <div class="hovercard" id="hovercard" role="tooltip"></div>
+      <div class="v-overlay" id="overlay" hidden></div>
+      <div class="v-toast" id="toast" role="status" hidden></div>
     </div>
   </div>
   <p class="hint">Håll musen över Tokeniser i statusraden för snabbkortet. Klicka på den för att visa eller dölja vyn.</p>
@@ -479,6 +522,20 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
         <li>Hälsoraden ligger alltid överst i vyn, före förslaget.</li>
         <li><b>Kontrolleras inte</b> och <b>Utom räckhåll</b> står i listan med de andra kontrollerna.</li>
         <li>Gränsringarna märks inte som osäkra när insamlaren har ändrats. Varningen i hälsoraden, ikonen i statusraden och raden i snabbkortet räcker.</li>
+      </ol>
+    </div>
+    <div class="note">
+      <p class="eyebrow">Data</p>
+      <h2>Export, radering och inställningar</h2>
+      <p>Dataraden ligger sist i vyn, eftersom radering inte går att ångra. Både export och radering bekräftas i VS Codes egna dialoger, inte i vyn. Din VS Code är på engelska, så knappen som avbryter heter <b>Cancel</b>; den läggs till av VS Code. Terminalraden stängs av med <code>npm run connect -- --no-line</code> och syns därför inte här.</p>
+    </div>
+    <div class="note">
+      <p class="eyebrow">Besvarat 15 sep 2026</p>
+      <h2>Tre beslut om dataraden</h2>
+      <ol>
+        <li>Raden visar antal händelser och storlek.</li>
+        <li>Raderingsdialogens texter räcker i båda lägena för <b>Anslutning</b>.</li>
+        <li>Rubriken i spara-dialogen märks inte, så aviseringen efter exporten säger vad filen innehåller. Den säger att bara du kan läsa filen bara om rättigheterna blev 0600. På en Windows-disk under <code>/mnt</code>, där 0600 inte gäller, säger den det i stället.</li>
       </ol>
     </div>
   </section>
@@ -522,7 +579,7 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   let reduceInit = false;
   try { reduceInit = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
-  const ui = { form: 'bottom', theme: prefersDark ? 'dark' : 'light', state: 'aktuell', mode: 'both', open: true, reduce: reduceInit, suggOpen: false, health: 'ok', healthOpen: false };
+  const ui = { form: 'bottom', theme: prefersDark ? 'dark' : 'light', state: 'aktuell', mode: 'both', open: true, reduce: reduceInit, suggOpen: false, health: 'ok', healthOpen: false, connected: true, deleted: false };
 
   /* ---------- Härledda värden ---------- */
   function limit(which) {
@@ -705,10 +762,82 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
       <div class="hl-body" id="hl-body"><div class="hl-inner"><ul class="hl-list">${items}</ul></div></div></div>`;
   }
 
+  /* ---------- Dataraden och dialogerna ---------- */
+  const EVENTS = `1${NB}842`;
+  const WARN_BIG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M8 2.2 14.3 13.3H1.7z" stroke-linejoin="round"/><path d="M8 6.4v3.3M8 11.4v.1" stroke-linecap="round"/></svg>';
+  const INFO_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.2v4M8 4.9v.1" stroke-linecap="round"/></svg>';
+
+  function dataRow() {
+    const meta = ui.deleted
+      ? 'Ingen insamlad data i <code>~/.tokeniser</code>'
+      : `${EVENTS} händelser sedan 14 sep · 2,1${NB}MB i <code>~/.tokeniser</code>`;
+    return `<div class="dr"><span class="dr-tag">Data</span><span class="dr-meta">${meta}</span>
+      <span class="dr-actions"><button class="dr-link" type="button" data-action="export">Exportera…</button><button class="dr-link" type="button" data-action="delete">Radera…</button><button class="dr-link" type="button" data-action="settings">Inställningar</button></span></div>`;
+  }
+
+  const DELETE_TEXT = {
+    true: {
+      title: 'Radera all insamlad data?',
+      lead: 'Det här tas bort ur <code>~/.tokeniser</code>:',
+      items: [['events/', `${EVENTS} händelser sedan 14 sep`], ['index.sqlite', 'indexet som vyn läser'], ['state/', 'senaste mätvärden per session och avvisade körningar']],
+      after: 'Anslutningen finns kvar, så nya svar i Claude Code samlas in igen. Koppla från först om inget mer ska samlas in.',
+      confirm: 'Radera data',
+      done: 'Insamlad data är raderad. Nya svar i Claude Code samlas in igen.',
+    },
+    false: {
+      title: 'Radera allt som Tokeniser har sparat?',
+      lead: 'Tokeniser är inte ansluten, så hela <code>~/.tokeniser</code> tas bort:',
+      items: [['events/, index.sqlite och state/', 'insamlad data'], ['backup/', 'kopian av settings.json från anslutningen, som kan innehålla hemligheter'], ['bin/', 'en tom mapp efter insamlaren']],
+      after: 'Claude Code och dina inställningar påverkas inte.',
+      confirm: 'Radera allt',
+      done: 'Allt som Tokeniser har sparat är raderat.',
+    },
+  };
+
+  function deleteDialog() {
+    const t = DELETE_TEXT[ui.connected];
+    const items = t.items.map(([name, what]) => `<li><code>${name}</code> – ${what}</li>`).join('');
+    return `<div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-detail">
+      <div class="dlg-body">${WARN_BIG}<div><p class="dlg-title" id="dlg-title">${t.title}</p>
+      <div class="dlg-detail" id="dlg-detail"><p>${t.lead}</p><ul>${items}</ul><p>${t.after} Det går inte att ångra.</p></div></div></div>
+      <div class="dlg-buttons"><button class="btn" type="button" data-action="confirm-delete" id="dlg-primary">${t.confirm}</button><button class="btn sec" type="button" data-action="close">Cancel</button></div></div>`;
+  }
+
+  function exportDialog() {
+    return `<div class="qi" role="dialog" aria-modal="true" aria-labelledby="qi-title">
+      <div class="qi-title" id="qi-title">Exportera ${EVENTS} händelser · filen innehåller projektnamn, sökvägar och tider</div>
+      <div class="qi-row"><input class="qi-input" id="qi-input" value="/home/lullo/tokeniser-export-2026-09-15.jsonl" aria-label="Sökväg för exporten"><button class="btn" type="button" data-action="save-export">OK</button></div>
+      <ul class="qi-list"><li>..</li><li>bin/</li><li>projects/</li><li>venv/</li></ul></div>`;
+  }
+
+  function openOverlay(kind) {
+    const overlay = $('#overlay');
+    overlay.dataset.kind = kind;
+    overlay.innerHTML = kind === 'delete' ? deleteDialog() : exportDialog();
+    overlay.hidden = false;
+    card.classList.remove('show');
+    $(kind === 'delete' ? '#dlg-primary' : '#qi-input')?.focus();
+  }
+
+  function closeOverlay() {
+    const overlay = $('#overlay');
+    overlay.hidden = true;
+    overlay.innerHTML = '';
+  }
+
+  let toastTimer;
+  function toast(text) {
+    const el = $('#toast');
+    el.innerHTML = `${INFO_ICON}<span>${text}</span><button class="v-toast-close" type="button" data-action="close-toast" aria-label="Stäng aviseringen">×</button>`;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.hidden = true; }, 6000);
+  }
+
   function viewHTML(layout) {
     return layout === 'wide'
-      ? `${health()}${suggestion()}${limits()}${session()}${history()}`
-      : `${health()}${limits()}${suggestion()}${session()}${history()}`;
+      ? `${health()}${suggestion()}${limits()}${session()}${history()}${dataRow()}`
+      : `${health()}${limits()}${suggestion()}${session()}${history()}${dataRow()}`;
   }
 
   function cardHTML() {
@@ -896,7 +1025,12 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   sbTk.addEventListener('blur', hideCard);
   card.addEventListener('mouseenter', showCard);
   card.addEventListener('mouseleave', hideCard);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') card.classList.remove('show'); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    card.classList.remove('show');
+    if (!$('#overlay').hidden) closeOverlay();
+    else $('#toast').hidden = true;
+  });
 
   function openView() {
     if (ui.form === 'card') { ui.form = 'bottom'; $('#form-bottom').checked = true; }
@@ -913,6 +1047,35 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   });
 
   vsc.addEventListener('click', async e => {
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (action) {
+      if (action === 'export') {
+        if (ui.deleted) toast('Det finns ingen insamlad data att exportera.');
+        else openOverlay('export');
+      } else if (action === 'delete') {
+        openOverlay('delete');
+      } else if (action === 'settings') {
+        toast('Bara i skissen: här öppnas VS Codes inställningar, filtrerade på Tokeniser. Extensionen visar ingen avisering.');
+      } else if (action === 'close-toast') {
+        clearTimeout(toastTimer);
+        $('#toast').hidden = true;
+      } else if (action === 'close') {
+        closeOverlay();
+      } else if (action === 'save-export') {
+        closeOverlay();
+        toast(`Exporterade ${EVENTS} händelser till <code>~/tokeniser-export-2026-09-15.jsonl</code>. Filen innehåller projektnamn, sökvägar och tider, men inget från konversationer. Bara du kan läsa den.`);
+      } else if (action === 'confirm-delete') {
+        const done = DELETE_TEXT[ui.connected].done;
+        closeOverlay();
+        ui.deleted = true;
+        ui.state = 'saknas';
+        $('#state-saknas').checked = true;
+        vals = base();
+        apply({ fade: true });
+        toast(done);
+      }
+      return;
+    }
     const link = e.target.closest('[data-open-view]');
     if (link) {
       e.preventDefault();
@@ -947,7 +1110,11 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   /* ---------- Kontroller ---------- */
   document.querySelectorAll('input[name="form"]').forEach(r => r.addEventListener('change', () => { ui.form = r.value; ui.open = true; card.classList.remove('show'); apply({ fade: true }); }));
   document.querySelectorAll('input[name="theme"]').forEach(r => r.addEventListener('change', () => { ui.theme = r.value; apply(); }));
-  document.querySelectorAll('input[name="state"]').forEach(r => r.addEventListener('change', () => { ui.state = r.value; vals = base(); apply({ fade: true }); }));
+  document.querySelectorAll('input[name="state"]').forEach(r => r.addEventListener('change', () => { ui.state = r.value; ui.deleted = false; vals = base(); apply({ fade: true }); }));
+  document.querySelectorAll('input[name="conn"]').forEach(r => r.addEventListener('change', () => {
+    ui.connected = r.value === 'yes';
+    if (!$('#overlay').hidden && $('#overlay').dataset.kind === 'delete') openOverlay('delete');
+  }));
   document.querySelectorAll('input[name="health"]').forEach(r => r.addEventListener('change', () => { ui.health = r.value; ui.healthOpen = r.value !== 'ok'; vals = base(); apply({ fade: true }); }));
   $('#sbmode').addEventListener('change', e => { ui.mode = e.target.value; updateChrome(); });
   const reduceBox = $('#reduce');
@@ -955,9 +1122,11 @@ button:focus-visible,select:focus-visible,.check input:focus-visible{outline:2px
   reduceBox.addEventListener('change', () => { ui.reduce = reduceBox.checked; vsc.classList.toggle('reduce', ui.reduce); });
   $('#sim').addEventListener('click', simulate);
   $('#reset').addEventListener('click', () => {
-    vals = base(); ui.state = 'aktuell'; ui.suggOpen = false; ui.open = true; ui.health = 'ok'; ui.healthOpen = false;
+    vals = base(); ui.state = 'aktuell'; ui.suggOpen = false; ui.open = true; ui.health = 'ok'; ui.healthOpen = false; ui.connected = true; ui.deleted = false;
     $('#state-aktuell').checked = true;
     $('#health-ok').checked = true;
+    $('#conn-yes').checked = true;
+    closeOverlay();
     apply({ fade: true });
   });
 

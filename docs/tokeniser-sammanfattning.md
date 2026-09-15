@@ -329,6 +329,14 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - Hashen skulle kosta en ny anslutning och cirka 180 ms per beräkning.
 
      Hälsokontrollen har i stället fått raden "Node och env". Den kontrollerar att Node-filen i kommandot och `/usr/bin/env` finns och är körbara, att de har rätt ägare (root eller du för Node, root för env) och att ingen annan kan skriva i dem eller i mapparna ovanför. Den kontrollerar också att kommandot är exakt det Tokeniser skapar. Det täcker det troligaste felet, att Node-versionen avinstalleras med nvm så att insamlaren tyst slutar fungera, och det kräver ingen ny anslutning.
+   - **Godkänd 2026-09-15:** dataraden och dialogtexterna i skissen (punkt 8). Beslut:
+     - **Radering:** när Tokeniser är ansluten tas insamlad data bort (`events/`, indexet och `state/`), och mapparna finns kvar, eftersom insamlaren aldrig skapar mappar. När Tokeniser inte är ansluten tas hela `~/.tokeniser` bort, även backupen av `settings.json`. Raderingen bekräftas i VS Codes modala dialog, som räknar upp exakt vad som tas bort och säger att det inte går att ångra.
+     - **Export:** rå JSONL från `events/`, sparad där du väljer.
+       - Aviseringen efter exporten säger vad filen innehåller.
+       - Den säger att bara du kan läsa filen bara om rättigheterna blev 0600. Annars, till exempel på en Windows-disk under `/mnt`, säger den det. Varningen i spara-dialogens rubrik märktes inte i skissen.
+       - CSV kommer i så fall med dagssummeringarna i Q16, med skydd mot formler i kalkylprogram.
+     - **Terminalraden:** stängs av med `npm run connect -- --no-line`, och hälsokontrollen godkänner båda varianterna av kommandot.
+     - **Dataraden:** ligger sist i vyn och visar antal händelser och storlek. Placeringen får ingen egen inställning, eftersom VS Code saknar API för att flytta en vy.
 
 ---
 
