@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -29,7 +29,16 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value));
 }
 
-function setup(collector = COLLECTOR, nodePath = realpathSync(process.execPath)): Setup {
+/** A Node file of the test's own, so the checks do not depend on where the machine keeps Node. */
+function fakeNode(): string {
+  const dir = join(mkdtempSync(join(tmpdir(), "tokeniser-node-")), "bin");
+  mkdirSync(dir);
+  const node = join(dir, "node");
+  writeFileSync(node, "#!/bin/sh\n", { mode: 0o755 });
+  return node;
+}
+
+function setup(collector = COLLECTOR, nodePath = fakeNode()): Setup {
   const home = makeStore();
   const root = dirname(home);
   const COMMAND = statusLineCommand(nodePath, collectorLayout(home));
@@ -182,10 +191,7 @@ test("ogiltiga fält och en gräns som saknas läses från indexet", () => {
 });
 
 test("en Node-fil som kan skrivas av andra, inte är körbar eller saknas upptäcks, liksom ett främmande kommando", () => {
-  const nodeDir = join(mkdtempSync(join(tmpdir(), "tokeniser-node-")), "bin");
-  mkdirSync(nodeDir);
-  const node = join(nodeDir, "node");
-  writeFileSync(node, "#!/bin/sh\n", { mode: 0o755 });
+  const node = fakeNode();
   const s = setup(COLLECTOR, node);
   const runtime = (): RuntimeFacts => {
     const f = read(s);

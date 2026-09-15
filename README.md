@@ -14,9 +14,12 @@ npm run build          # bygger dist/extension.js och dist/collector.js med esbu
 npm run watch          # bygger om vid ändring
 npm run typecheck
 npm test               # enhetstester och tester av den byggda insamlaren
+npm run test:integration  # startar VS Code 1.137.0 med påhittad data; kräver en skärm (CI använder xvfb)
 ```
 
 Starta extensionen i en utvecklingsinstans med F5 ("Kör extension").
+
+CI på GitHub (`.github/workflows/ci.yml`) kör typkontroll, enhetstester, tester från början till slut och integrationstesterna i VS Code vid varje push till `main` och varje pull request. Arbetsflödet har bara läsrättighet, inga hemligheter och actions låsta till exakta commits.
 
 ## Insamlaren
 

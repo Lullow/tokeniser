@@ -16,6 +16,14 @@ import { readSnapshot } from "./status/snapshot.ts";
 import { emptyViewData, readViewData, type ViewData } from "./view/data.ts";
 import { buildViewModel, type ViewSettings } from "./view/model.ts";
 import { TokeniserViewProvider, VIEW_ID, type ViewAction } from "./view/provider.ts";
+import type { ViewModel } from "./view/types.ts";
+
+/** Only for the integration tests: read-only, and never returned outside VS Code's test mode. */
+export interface TestApi {
+  statusText(): string;
+  viewModel(): ViewModel | null;
+  webviewReady(): boolean;
+}
 
 const OPEN_COMMAND = "tokeniser.openView";
 const TOGGLE_COMMAND = "tokeniser.toggleView";
@@ -85,6 +93,7 @@ class Controller implements vscode.Disposable {
   private viewData: ViewData = emptyViewData();
   private healthFacts: HealthFacts | null = null;
   private storage: StorageSummary | null = null;
+  private lastModel: ViewModel | null = null;
   private watcher: FSWatcher | undefined;
   private pending: NodeJS.Timeout | undefined;
 
@@ -215,7 +224,18 @@ class Controller implements vscode.Disposable {
     tooltip.supportThemeIcons = true;
     tooltip.isTrusted = { enabledCommands: [OPEN_COMMAND] };
     this.item.tooltip = tooltip;
-    if (this.provider.visible) this.provider.update(buildViewModel(this.snapshot, this.viewData, settings, now, health, this.storage));
+    if (this.provider.visible) {
+      this.lastModel = buildViewModel(this.snapshot, this.viewData, settings, now, health, this.storage);
+      this.provider.update(this.lastModel);
+    }
+  }
+
+  testApi(): TestApi {
+    return {
+      statusText: () => this.item.text,
+      viewModel: () => this.lastModel,
+      webviewReady: () => this.provider.webviewReady,
+    };
   }
 
   private readStorage(db: DatabaseSync | null): StorageSummary | null {
@@ -299,8 +319,11 @@ class Controller implements vscode.Disposable {
   }
 }
 
-export function activate(context: vscode.ExtensionContext): void {
-  context.subscriptions.push(new Controller(context.extensionUri));
+export function activate(context: vscode.ExtensionContext): TestApi | undefined {
+  const controller = new Controller(context.extensionUri);
+  context.subscriptions.push(controller);
+  // A normal installation gives other extensions nothing to call.
+  return context.extensionMode === vscode.ExtensionMode.Test ? controller.testApi() : undefined;
 }
 
 export function deactivate(): void {}

@@ -21,6 +21,7 @@ export class TokeniserViewProvider implements vscode.WebviewViewProvider {
   private readonly onAction: (action: ViewAction) => void;
   private view: vscode.WebviewView | undefined;
   private model: ViewModel | null = null;
+  private readyReceived = false;
 
   constructor(extensionUri: vscode.Uri, onVisible: () => void, onAction: (action: ViewAction) => void) {
     this.extensionUri = extensionUri;
@@ -32,8 +33,14 @@ export class TokeniserViewProvider implements vscode.WebviewViewProvider {
     return this.view?.visible ?? false;
   }
 
+  /** True once the webview's script has run, which the content security policy would otherwise block. */
+  get webviewReady(): boolean {
+    return this.readyReceived;
+  }
+
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
+    this.readyReceived = false;
     const dist = vscode.Uri.joinPath(this.extensionUri, "dist");
     view.webview.options = { enableScripts: true, enableCommandUris: false, localResourceRoots: [dist] };
     view.webview.html = viewHtml({
@@ -70,6 +77,7 @@ export class TokeniserViewProvider implements vscode.WebviewViewProvider {
     if (typeof message !== "object" || message === null) return;
     const { type, command, action } = message as { type?: unknown; command?: unknown; action?: unknown };
     if (type === "ready") {
+      this.readyReceived = true;
       this.post();
       return;
     }
