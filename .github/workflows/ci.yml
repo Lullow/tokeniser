@@ -45,3 +45,11 @@ jobs:
 
       - name: Integrationstester i VS Code
         run: xvfb-run -a npm run test:integration
+
+      - name: Paketera VSIX och kontrollera innehållet
+        run: |
+          npm run package
+          python3 -c 'import zipfile; print("\n".join(zipfile.ZipFile("tokeniser.vsix").namelist()))' | sort > vsix-files.txt
+          printf '%s\n' '[Content_Types].xml' extension.vsixmanifest extension/package.json extension/readme.md \
+            extension/dist/extension.js extension/dist/view.js extension/dist/view.css extension/media/tokeniser.svg | sort > vsix-expected.txt
+          diff -u vsix-expected.txt vsix-files.txt

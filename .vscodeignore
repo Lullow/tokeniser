@@ -1,11 +1,9 @@
-.vscode/**
-.vscode-test/**
-node_modules/**
-src/**
-test/**
-scripts/**
-docs/**
-coverage/**
-esbuild.mjs
-tsconfig.json
-**/*.map
+# An allowlist: the VSIX holds only what the installed extension needs. The collector is not
+# included, since the connect script installs it from the repository.
+**
+!package.json
+!README.md
+!dist/extension.js
+!dist/view.js
+!dist/view.css
+!media/tokeniser.svg

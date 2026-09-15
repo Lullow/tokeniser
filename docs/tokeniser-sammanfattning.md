@@ -360,6 +360,10 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
        - `@vscode/test-electron` används utan `@vscode/test-cli`, eftersom det ger färre beroenden.
        - Ingen linter än. Typkontrollen har i stället `noUnusedLocals` och `noUnusedParameters`. En linter tas upp igen inför en publicering.
      - **Kvar av punkt 10:** den lokala VSIX-filen (acceptanskriterium 16).
+   - **Klart 2026-09-15:** VSIX-filen (acceptanskriterium 16), och därmed punkt 10.
+     - `npm run package` bygger `tokeniser.vsix` med `@vscode/vsce` 4.0.0. Paketet ligger i låsfilen, så att även dess många beroenden är låsta.
+     - `.vscodeignore` är en tillåtelselista. Paketet innehåller bara `package.json`, README, extensionen, webbvyn och ikonen: 8 filer, 39 kB. CI jämför innehållet mot listan.
+     - Installerad i WSL med `code --install-extension tokeniser.vsix` och kontrollerad med skärmbilder i ett fönster med `~/projects/tokeniser`: statusraden, snabbkortet, vyn och hälsoraden med 6 kontroller i ordning.
 
 ---
 

@@ -21,6 +21,16 @@ Starta extensionen i en utvecklingsinstans med F5 ("Kör extension").
 
 CI på GitHub (`.github/workflows/ci.yml`) kör typkontroll, enhetstester, tester från början till slut och integrationstesterna i VS Code vid varje push till `main` och varje pull request. Arbetsflödet har bara läsrättighet, inga hemligheter och actions låsta till exakta commits.
 
+## Installera
+
+```sh
+npm run package                              # bygger tokeniser.vsix med bara det extensionen behöver
+code --install-extension tokeniser.vsix      # i en WSL-terminal: installerar i VS Code-servern i WSL
+code --uninstall-extension lullo.tokeniser   # tar bort den igen
+```
+
+Ladda om VS Code-fönstret efter installationen. Insamlaren ansluts fortfarande med `npm run connect`. Vilka filer VSIX-filen får innehålla styrs av tillåtelselistan i `.vscodeignore`, och CI kontrollerar innehållet.
+
 ## Insamlaren
 
 Claude Code kör insamlaren som statusrad. Den validerar JSON-datan, skriver en kort rad i terminalen (`5h 64% · v 31% · ktx 21%`) och lägger till en rad i `~/.tokeniser/events/ÅÅÅÅ-MM.jsonl` när mätvärdena har ändrats. Konversationsinnehåll, `session_name`, `transcript_path` och `prompt_id` sparas aldrig.
