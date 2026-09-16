@@ -20,7 +20,11 @@ test("raderingsdialogen räknar upp exakt vad som tas bort i båda lägena", () 
   const collected = deleteDialog("collected", STORAGE, NOW);
   assert.equal(collected.message, "Radera all insamlad data?");
   assert.equal(collected.confirm, "Radera data");
-  assert.ok(collected.detail.startsWith(`Det här tas bort ur ~/.tokeniser:\n• events/ – 1${NB}842 händelser sedan 14${NB}sep\n• index.sqlite`));
+  assert.ok(
+    collected.detail.startsWith(
+      `Det här tas bort ur ~/.tokeniser:\n• events/ – 1${NB}842 händelser sedan 14${NB}sep\n• days.jsonl – dagssummeringarna, även för dagar vars händelser redan är rensade\n• index.sqlite`,
+    ),
+  );
   assert.match(collected.detail, /Anslutningen finns kvar, så nya svar i Claude Code samlas in igen\./);
   assert.match(collected.detail, /Det går inte att ångra\.$/);
 
@@ -28,7 +32,7 @@ test("raderingsdialogen räknar upp exakt vad som tas bort i båda lägena", () 
   assert.equal(everything.message, "Radera allt som Tokeniser har sparat?");
   assert.equal(everything.confirm, "Radera allt");
   assert.match(everything.detail, /hela ~\/\.tokeniser tas bort/);
-  assert.match(everything.detail, /insamlad data, inga händelser/);
+  assert.match(everything.detail, /events\/, days\.jsonl, index\.sqlite och state\/ – insamlad data och dagssummeringar, inga händelser/);
   assert.match(everything.detail, /backup\/ – kopian av settings\.json från anslutningen, som kan innehålla hemligheter/);
 
   assert.equal(deleteDone("collected", { remaining: [] }), "Insamlad data är raderad. Nya svar i Claude Code samlas in igen.");

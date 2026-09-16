@@ -93,6 +93,7 @@ function print(status: "ingested" | "locked", result: IngestResult | null, summa
     const skipped = quantity(result.skipped, "ogiltig rad", "ogiltiga rader");
     console.log(`Inläsning: ${inserted}, ${duplicates}, ${skipped} i ${quantity(result.files, "fil", "filer")}.`);
     if (result.resetFiles.length > 0) console.log(`Lästes om från början: ${result.resetFiles.join(", ")}`);
+    if (result.removedFiles.length > 0) console.log(`Borttagna ur indexet, eftersom filen inte finns: ${result.removedFiles.join(", ")}`);
   }
   const events = quantity(summary.events, "händelse", "händelser");
   console.log(`Index: ${events}, ${quantity(summary.sessions, "session", "sessioner")}, ${summary.projects.length} projekt.`);

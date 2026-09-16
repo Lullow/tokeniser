@@ -14,7 +14,7 @@ const MIN = 60_000;
 const T0 = Date.UTC(2026, 8, 14, 21, 0);
 const EARLY = T0 - 20 * 24 * 60 * MIN;
 
-/** A Tokeniser directory with events in two months, state, an index, a collector and a backup. */
+/** A Tokeniser directory with events in two months, state, summaries, an index, a collector and a backup. */
 function populated(connected: boolean): string {
   const home = makeStore();
   ensurePrivateDir(join(home, "bin"));
@@ -26,6 +26,8 @@ function populated(connected: boolean): string {
   appendEvents(home, "2026-09", [eventLine({ at: T0 }), eventLine({ at: T0 + MIN })]);
   writeFileSync(join(home, "state", "session-a.last"), "x".repeat(64), { mode: 0o600 });
   writeFileSync(join(home, "state", "problems.jsonl"), '{"at":1,"kind":"not_json"}\n', { mode: 0o600 });
+  writeFileSync(join(home, "days.jsonl"), '{"v":1,"date":"2026-08-25"}\n', { mode: 0o600 });
+  writeFileSync(join(home, ".days.jsonl.0123456789abcdef.tmp"), "", { mode: 0o600 });
   const db = openIndex(home);
   try {
     ingest(db, home);
@@ -82,6 +84,8 @@ test("ansluten: insamlad data raderas, men mappar, anslutning och okända filer 
   assert.deepEqual(readdirSync(join(home, "events")), ["anteckning.txt"]);
   assert.deepEqual(readdirSync(join(home, "state")), []);
   assert.ok(!existsSync(join(home, "index.sqlite")));
+  assert.ok(!existsSync(join(home, "days.jsonl")), "dagssummeringarna raderas");
+  assert.ok(!existsSync(join(home, ".days.jsonl.0123456789abcdef.tmp")));
   assert.ok(!existsSync(indexPaths(home).lock), "låset släpps");
   for (const kept of ["connection.json", "bin/collector.cjs", "backup/settings.0123456789abcdef.json"]) {
     assert.ok(existsSync(join(home, kept)), kept);

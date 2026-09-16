@@ -7,6 +7,8 @@ import { deleteData, deleteScope, exportEvents, readStorage, type StorageSummary
 import { deleteDialog, deleteDone, exportDone, exportTitle } from "./data/text.ts";
 import { buildHealth, type HealthFacts } from "./health/model.ts";
 import { MANAGED_DIR, readHealthFacts, type HealthIndex } from "./health/read.ts";
+import { maintain } from "./history/maintain.ts";
+import { localDate } from "./history/summary.ts";
 import { indexPaths, openIndex } from "./index/db.ts";
 import { ingest } from "./index/ingest.ts";
 import { tryAcquireLock } from "./index/lock.ts";
@@ -35,6 +37,8 @@ const REFRESH_DEBOUNCE_MS = 300;
 const RENDER_EVERY_MS = 30_000;
 /** A fallback in case a file system event is missed. */
 const POLL_EVERY_MS = 60_000;
+/** Summaries and retention (decision Q16) need no more than this; a pass with days left runs again at once. */
+const MAINTAIN_EVERY_MS = 10 * 60_000;
 const NOT_CONNECTED = "Tokeniser är inte ansluten till Claude Code. Anslut med npm run connect i Tokeniser-repot.";
 const MODES: readonly StatusMode[] = ["both", "fiveHour", "week", "nearest", "context"];
 
@@ -76,11 +80,6 @@ function themeKind(): ThemeKind {
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
-function isoDate(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 const workspaceFolders = (): string[] => (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
 
 class Controller implements vscode.Disposable {
@@ -96,6 +95,7 @@ class Controller implements vscode.Disposable {
   private lastModel: ViewModel | null = null;
   private watcher: FSWatcher | undefined;
   private pending: NodeJS.Timeout | undefined;
+  private nextMaintenance = 0;
 
   constructor(extensionUri: vscode.Uri) {
     this.provider = new TokeniserViewProvider(
@@ -172,6 +172,7 @@ class Controller implements vscode.Disposable {
           if (lock !== null) {
             try {
               ingest(db, this.home);
+              this.maintain(db);
             } finally {
               lock.release();
             }
@@ -195,6 +196,21 @@ class Controller implements vscode.Disposable {
       this.storage = this.readStorage(null);
     }
     this.render();
+  }
+
+  /** Decision Q16, in the window holding the index lock. A failure is tried again at the next interval. */
+  private maintain(db: DatabaseSync): void {
+    const now = Date.now();
+    if (now < this.nextMaintenance) return;
+    this.nextMaintenance = now + MAINTAIN_EVERY_MS;
+    try {
+      if (maintain(db, this.home, now).pending) {
+        this.nextMaintenance = 0;
+        this.scheduleRefresh();
+      }
+    } catch {
+      // The status line and the view must keep working; the data is still there to try again.
+    }
   }
 
   /** Point 7: the health check runs with every refresh and never throws. */
@@ -276,7 +292,7 @@ class Controller implements vscode.Disposable {
     }
     const target = await vscode.window.showSaveDialog({
       title: exportTitle(storage),
-      defaultUri: vscode.Uri.file(join(homedir(), `tokeniser-export-${isoDate(Date.now())}.jsonl`)),
+      defaultUri: vscode.Uri.file(join(homedir(), `tokeniser-export-${localDate(Date.now())}.jsonl`)),
       filters: { "JSON Lines": ["jsonl"] },
     });
     if (target === undefined) return;

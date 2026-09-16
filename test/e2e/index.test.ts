@@ -128,7 +128,7 @@ test("inspelad riktig data läses in utan ogiltiga rader", { timeout: 60_000 }, 
   const run = runIndex(home, "--json");
   assert.equal(run.status, 0, run.stderr);
   const { result, summary } = JSON.parse(run.stdout);
-  assert.deepEqual(result, { files: 1, inserted: lines.length, duplicates: 0, skipped: 0, resetFiles: [] });
+  assert.deepEqual(result, { files: 1, inserted: lines.length, duplicates: 0, skipped: 0, resetFiles: [], removedFiles: [] });
   assert.equal(summary.sessions, new Set(lines.map((line) => JSON.parse(line).session_id)).size);
   assert.equal(summary.projects.length, 3);
   assert.notEqual(summary.limits, null);

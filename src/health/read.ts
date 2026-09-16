@@ -147,7 +147,7 @@ export function readDataFacts(db: DatabaseSync, now: number): DataFacts {
   };
 }
 
-/** Only the tail of problems.jsonl is read, since the file grows without a limit (known gap 6). */
+/** Only the tail of problems.jsonl is read, since the file grows until every entry is 90 days old (known gap 6). */
 export function readProblems(home: string, now: number, uid: number): ProblemCount[] {
   const path = join(home, "state", "problems.jsonl");
   const size = readRangeChecked(path, true, 0, 0, uid)?.size;

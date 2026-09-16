@@ -1,8 +1,7 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import { forEachActiveGap, newCalls, tokensOf, type CallRow } from "../index/usage.ts";
 
 export const HISTORY_DAYS = 7;
-/** A gap longer than this between two events in a session counts as a break. */
-export const ACTIVE_GAP_MS = 10 * 60 * 1000;
 
 export interface UsageTotals {
   input: number;
@@ -39,14 +38,8 @@ export interface ViewData {
 
 export const emptyViewData = (): ViewData => ({ days: [], projectsToday: [], sessionTotals: null, cacheMiss: null });
 
-interface UsageRow {
-  sessionId: string;
+interface UsageRow extends CallRow {
   projectId: number | null;
-  at: number;
-  input: number | null;
-  output: number | null;
-  cacheCreation: number | null;
-  cacheRead: number | null;
 }
 
 type Row = Record<string, unknown>;
@@ -81,46 +74,11 @@ function usageRows(db: DatabaseSync, where: string, ...params: SQLInputValue[]):
   }));
 }
 
-const tokensOf = (r: UsageRow): number => (r.input ?? 0) + (r.output ?? 0) + (r.cacheCreation ?? 0) + (r.cacheRead ?? 0);
-
-/**
- * The status line only carries the latest API call, and usually shows it twice: when the
- * response starts, with a few output tokens, and when it is done. Consecutive rows in a session
- * with the same input and cache tokens are therefore one call, counted once with its highest
- * output, at the time it first appeared. Calls between two status line updates are missed,
- * which makes every sum a lower bound (decision Q16: always marked as an estimate).
- */
-function newCalls(rows: readonly UsageRow[]): UsageRow[] {
-  const open = new Map<string, UsageRow>();
-  const calls: UsageRow[] = [];
-  for (const row of rows) {
-    if (row.input === null && row.output === null && row.cacheCreation === null && row.cacheRead === null) continue;
-    const call = open.get(row.sessionId);
-    if (call !== undefined && call.input === row.input && call.cacheCreation === row.cacheCreation && call.cacheRead === row.cacheRead) {
-      if ((row.output ?? 0) > (call.output ?? 0)) call.output = row.output;
-      continue;
-    }
-    const next = { ...row };
-    open.set(row.sessionId, next);
-    calls.push(next);
-  }
-  return calls;
-}
-
 /** Time between consecutive events in a session, leaving out breaks. */
 function activeTime(rows: readonly UsageRow[]): Map<string, number> {
-  const sessions = new Map<string, { last: number; total: number }>();
-  for (const row of rows) {
-    const session = sessions.get(row.sessionId);
-    if (session === undefined) {
-      sessions.set(row.sessionId, { last: row.at, total: 0 });
-      continue;
-    }
-    const gap = row.at - session.last;
-    if (gap <= ACTIVE_GAP_MS) session.total += gap;
-    session.last = row.at;
-  }
-  return new Map([...sessions].map(([id, session]) => [id, session.total]));
+  const totals = new Map<string, number>();
+  forEachActiveGap(rows, (row, ms) => totals.set(row.sessionId, (totals.get(row.sessionId) ?? 0) + ms));
+  return totals;
 }
 
 function parseMiss(row: Row | undefined): CacheMiss | null {

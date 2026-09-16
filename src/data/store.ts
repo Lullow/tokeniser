@@ -14,6 +14,8 @@ const SUBDIRS = ["events", "state", "backup", "bin"];
 const STATE_FILE = /^(?:[A-Za-z0-9._-]{1,128}\.last|problems\.jsonl|\..+\.tmp)$/;
 const BACKUP_FILE = /^settings\.[0-9a-f]{16}\.json$/;
 const COLLECTOR_FILE = /^collector\.cjs$/;
+/** The daily summaries and a temporary file left by an interrupted write. */
+const DAYS_ENTRY = /^(?:days\.jsonl|\.days\.jsonl\.[0-9a-f]{16}\.tmp)$/;
 
 const errnoCode = (error: unknown): string | undefined => (error as NodeJS.ErrnoException | null)?.code;
 const numberOrNull = (v: unknown): number | null => (typeof v === "number" || typeof v === "bigint" ? Number(v) : null);
@@ -126,8 +128,8 @@ export interface DeleteResult {
   remaining: string[];
 }
 
-/** Removes only names Tokeniser writes, one at a time; unlink never follows a link. */
-function removeMatching(dir: string, pattern: RegExp, uid: number, remaining: string[]): void {
+/** Removes only names Tokeniser writes, one at a time; unlink never follows a link. Without a list, other entries are not reported. */
+function removeMatching(dir: string, pattern: RegExp, uid: number, remaining: string[] | null): void {
   let entries;
   try {
     assertPrivateDir(dir, uid);
@@ -145,7 +147,7 @@ function removeMatching(dir: string, pattern: RegExp, uid: number, remaining: st
         if (errnoCode(error) !== "ENOENT") throw error;
       }
     } else {
-      remaining.push(display(path));
+      remaining?.push(display(path));
     }
   }
 }
@@ -181,6 +183,7 @@ export function deleteData(home: string, confirmed: DeleteScope, uid = currentUi
   try {
     removeMatching(join(home, "events"), MONTH_FILE, uid, remaining);
     removeMatching(join(home, "state"), STATE_FILE, uid, remaining);
+    removeMatching(home, DAYS_ENTRY, uid, null);
     deleteIndex(home, uid);
     if (confirmed === "everything") {
       removeMatching(join(home, "backup"), BACKUP_FILE, uid, remaining);

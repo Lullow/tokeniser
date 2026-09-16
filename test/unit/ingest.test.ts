@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { appendFileSync, renameSync, statSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
+import { appendFileSync, renameSync, statSync, symlinkSync, truncateSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { DatabaseSync } from "node:sqlite";
@@ -32,8 +32,8 @@ test("läser in alla händelser och bara nya vid nästa körning", () => {
   const home = makeStore();
   appendEvents(home, "2026-09", [0, 1, 2].map((i) => eventLine({ at: T0 + i * MIN })));
   withIndex(home, (db) => {
-    assert.deepEqual(ingest(db, home), { files: 1, inserted: 3, duplicates: 0, skipped: 0, resetFiles: [] });
-    assert.deepEqual(ingest(db, home), { files: 1, inserted: 0, duplicates: 0, skipped: 0, resetFiles: [] });
+    assert.deepEqual(ingest(db, home), { files: 1, inserted: 3, duplicates: 0, skipped: 0, resetFiles: [], removedFiles: [] });
+    assert.deepEqual(ingest(db, home), { files: 1, inserted: 0, duplicates: 0, skipped: 0, resetFiles: [], removedFiles: [] });
     appendEvents(home, "2026-09", [3, 4].map((i) => eventLine({ at: T0 + i * MIN })));
     assert.equal(ingest(db, home).inserted, 2);
     assert.equal(eventCount(db), 5);
@@ -45,7 +45,7 @@ test("en halv rad väntar tills den är klar", () => {
   const line = eventLine({ at: T0 });
   appendEvents(home, "2026-09", line.slice(0, 300));
   withIndex(home, (db) => {
-    assert.deepEqual(ingest(db, home), { files: 1, inserted: 0, duplicates: 0, skipped: 0, resetFiles: [] });
+    assert.deepEqual(ingest(db, home), { files: 1, inserted: 0, duplicates: 0, skipped: 0, resetFiles: [], removedFiles: [] });
     appendEvents(home, "2026-09", line.slice(300));
     assert.equal(ingest(db, home).inserted, 1);
   });
@@ -58,7 +58,7 @@ test("ny månadsfil läses och den gamla läses klart", () => {
     ingest(db, home);
     appendEvents(home, "2026-09", eventLine({ at: T0 + 2 * MIN }));
     appendEvents(home, "2026-10", eventLine({ at: T0 + 30 * 24 * 60 * MIN }));
-    assert.deepEqual(ingest(db, home), { files: 2, inserted: 2, duplicates: 0, skipped: 0, resetFiles: [] });
+    assert.deepEqual(ingest(db, home), { files: 2, inserted: 2, duplicates: 0, skipped: 0, resetFiles: [], removedFiles: [] });
   });
 });
 
@@ -71,14 +71,32 @@ test("ersatt eller trunkerad fil läses om från början utan dubbletter", () =>
     const temp = join(home, "events", "ny.tmp");
     writeFileSync(temp, [5, 6].map((i) => eventLine({ at: T0 + i * MIN, session: "new", five: 40 })).join(""), { mode: 0o600 });
     renameSync(temp, eventFile(home));
-    assert.deepEqual(ingest(db, home), { files: 1, inserted: 2, duplicates: 0, skipped: 0, resetFiles: ["2026-09.jsonl"] });
+    assert.deepEqual(ingest(db, home), { files: 1, inserted: 2, duplicates: 0, skipped: 0, resetFiles: ["2026-09.jsonl"], removedFiles: [] });
     assert.equal(eventCount(db), 2);
     assert.equal(count(db, "SELECT COUNT(*) AS n FROM sessions"), 1);
 
     truncateSync(eventFile(home), 0);
     appendEvents(home, "2026-09", eventLine({ at: T0 + 9 * MIN, session: "newest" }));
-    assert.deepEqual(ingest(db, home), { files: 1, inserted: 1, duplicates: 0, skipped: 0, resetFiles: ["2026-09.jsonl"] });
+    assert.deepEqual(ingest(db, home), { files: 1, inserted: 1, duplicates: 0, skipped: 0, resetFiles: ["2026-09.jsonl"], removedFiles: [] });
     assert.equal(eventCount(db), 1);
+  });
+});
+
+test("en borttagen månadsfil tas bort ur indexet, med sessioner och projekt som bara fanns där", () => {
+  const home = makeStore();
+  appendEvents(home, "2026-08", eventLine({ at: T0 - 30 * 24 * 60 * MIN, session: "old", dir: "/home/user/projects/old" }));
+  appendEvents(home, "2026-09", eventLine({ at: T0, session: "new" }));
+  withIndex(home, (db) => {
+    assert.equal(ingest(db, home).inserted, 2);
+    unlinkSync(eventFile(home, "2026-08"));
+    assert.deepEqual(ingest(db, home), { files: 1, inserted: 0, duplicates: 0, skipped: 0, resetFiles: [], removedFiles: ["2026-08.jsonl"] });
+    assert.equal(eventCount(db), 1);
+    assert.equal(count(db, "SELECT COUNT(*) AS n FROM sessions"), 1);
+    assert.equal(count(db, "SELECT COUNT(*) AS n FROM source_files"), 1);
+    assert.deepEqual(projects(db), [{ key: `dir:${DIR}`, kind: "dir", label: "alpha" }]);
+
+    appendEvents(home, "2026-08", eventLine({ at: T0 - 30 * 24 * 60 * MIN, session: "back" }));
+    assert.equal(ingest(db, home).inserted, 1, "en fil som kommer tillbaka läses från början");
   });
 });
 
@@ -87,7 +105,7 @@ test("ogiltiga rader hoppas över och räknas", () => {
   appendEvents(home, "2026-09", ["inte json\n", "{}\n", JSON.stringify({ v: 2, received_at: T0, session_id: "s" }) + "\n", eventLine({ at: T0 })]);
   appendFileSync(eventFile(home), Buffer.from([0xff, 0xfe, 0x0a]));
   withIndex(home, (db) => {
-    assert.deepEqual(ingest(db, home), { files: 1, inserted: 1, duplicates: 0, skipped: 4, resetFiles: [] });
+    assert.deepEqual(ingest(db, home), { files: 1, inserted: 1, duplicates: 0, skipped: 4, resetFiles: [], removedFiles: [] });
   });
 });
 
@@ -95,7 +113,7 @@ test("en rad längre än ett läsblock hoppas över och läsningen fortsätter",
   const home = makeStore();
   appendEvents(home, "2026-09", ["x".repeat(5000) + "\n", eventLine({ at: T0 })]);
   withIndex(home, (db) => {
-    assert.deepEqual(ingest(db, home, { chunkBytes: 2048 }), { files: 1, inserted: 1, duplicates: 0, skipped: 1, resetFiles: [] });
+    assert.deepEqual(ingest(db, home, { chunkBytes: 2048 }), { files: 1, inserted: 1, duplicates: 0, skipped: 1, resetFiles: [], removedFiles: [] });
   });
 });
 

@@ -93,7 +93,7 @@ Testerna finns i `test/unit/` och `test/e2e/` och körs med `npm test`.
 3. **Hårda länkar hanteras av koden, inte av körmiljön.** Behörighetsmodellen jämför bara sökvägar.
 4. **stdin läses i sin helhet** innan storleksgränsen på 1 MiB kontrolleras.
 5. **Fritext rensas inte från kontrolltecken** innan den sparas. Terminalraden påverkas inte, men vyn och framtida kommandon måste escapa texten.
-6. **`problems.jsonl` och `state/` växer utan gräns.**
+6. **`problems.jsonl` och `state/` rensas bara när VS Code är öppet.** Extensionen tar bort filer i `state/` som inte har ändrats på 90 dagar, och `problems.jsonl` när alla rader är äldre än 90 dagar. Tills dess växer de (stängd 2026-09-16).
 7. **Node-filens innehåll jämförs inte efter anslutningen. Luckan är godtagen (2026-09-15).**
    - Hashen binder bara planen till godkännandet.
    - Med Node från nvm ägs filen av din användare. Bara kod som körs som du kan då ändra den, och sådan kod ligger utanför hotmodellen. Den kan dessutom skriva om `connection.json`, så en sparad hash skulle inte skydda.

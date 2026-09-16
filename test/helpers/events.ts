@@ -17,6 +17,9 @@ export interface EventOptions {
   /** Epoch seconds. */
   weekResets?: number;
   context?: number;
+  model?: string;
+  /** Null leaves out cost. */
+  cost?: number | null;
   usage?: { input: number; output: number; cacheCreation: number; cacheRead: number };
   missCauses?: string[];
   /** Epoch seconds. */
@@ -35,7 +38,7 @@ export function eventLine(o: EventOptions): string {
     received_at: o.at,
     session_id: o.session ?? "session-a",
     version: "2.1.270",
-    model: { id: "claude-opus-5", display_name: "Opus 5" },
+    model: { id: o.model ?? "claude-opus-5", display_name: "Opus 5" },
     effort: "xhigh",
     fast_mode: false,
     workspace,
@@ -56,8 +59,8 @@ export function eventLine(o: EventOptions): string {
       five_hour: { used_percentage: o.five ?? 17, resets_at: o.fiveResets ?? 1_789_428_600 },
       ...(o.week === null ? {} : { seven_day: { used_percentage: o.week ?? 5, resets_at: o.weekResets ?? 1_789_600_000 } }),
     },
-    cost: { total_cost_usd: 1.5, total_duration_ms: 60_000, total_api_duration_ms: 20_000 },
   };
+  if (o.cost !== null) record.cost = { total_cost_usd: o.cost ?? 1.5, total_duration_ms: 60_000, total_api_duration_ms: 20_000 };
   if (o.missCauses !== undefined) {
     record.prompt_cache = { warm: true, ttl: "1h", last_miss_at: o.missAt ?? Math.floor(o.at / 1000), last_miss_cause: { causes: o.missCauses } };
   }

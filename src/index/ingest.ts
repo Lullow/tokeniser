@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 import { assertPrivateDir, currentUid, readRangeChecked, sha256 } from "../secure/fs.ts";
@@ -21,6 +21,8 @@ export interface IngestResult {
   skipped: number;
   /** Files that were replaced or truncated and therefore read again from the start. */
   resetFiles: string[];
+  /** Files that no longer exist, whose events have left the index. */
+  removedFiles: string[];
 }
 
 export interface IngestOptions {
@@ -46,6 +48,8 @@ function prepare(db: DatabaseSync) {
        ON CONFLICT(name) DO UPDATE SET dev = excluded.dev, ino = excluded.ino,
          read_offset = excluded.read_offset, first_line_sha256 = excluded.first_line_sha256`,
     ),
+    fileNames: db.prepare("SELECT name FROM source_files ORDER BY name"),
+    deleteFile: db.prepare("DELETE FROM source_files WHERE name = ?"),
     deleteFileEvents: db.prepare("DELETE FROM events WHERE source_file = ?"),
     projectForDir: db.prepare("SELECT p.id, p.kind FROM project_dirs d JOIN projects p ON p.id = d.project_id WHERE d.dir = ?"),
     upsertProject: db.prepare(
@@ -226,6 +230,33 @@ function ingestFile(db: DatabaseSync, s: Statements, eventsDir: string, name: st
   }
 }
 
+function missing(path: string): boolean {
+  try {
+    lstatSync(path);
+    return false;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    throw error;
+  }
+}
+
+/**
+ * Events from month files that no longer exist leave the index, so it always mirrors events/.
+ * Files are checked again inside the transaction, so a file created meanwhile is never forgotten.
+ */
+function forgetRemovedFiles(db: DatabaseSync, s: Statements, eventsDir: string): string[] {
+  const gone = () => (s.fileNames.all() as { name: unknown }[]).map((row) => String(row.name)).filter((name) => missing(join(eventsDir, name)));
+  if (gone().length === 0) return [];
+  return transaction(db, () => {
+    const removed = gone();
+    for (const name of removed) {
+      s.deleteFileEvents.run(name);
+      s.deleteFile.run(name);
+    }
+    return removed;
+  });
+}
+
 function removeOrphans(db: DatabaseSync): void {
   transaction(db, () => {
     db.exec(`
@@ -243,7 +274,7 @@ function removeOrphans(db: DatabaseSync): void {
   });
 }
 
-/** Reads new lines from every monthly event file into the index. */
+/** Reads new lines from every monthly event file into the index, and forgets files that are gone. */
 export function ingest(db: DatabaseSync, home: string, options: IngestOptions = {}): IngestResult {
   const uid = options.uid ?? currentUid();
   const chunkBytes = options.chunkBytes ?? DEFAULT_CHUNK_BYTES;
@@ -251,11 +282,12 @@ export function ingest(db: DatabaseSync, home: string, options: IngestOptions = 
   assertPrivateDir(eventsDir, uid);
 
   const s = prepare(db);
-  const result: IngestResult = { files: 0, inserted: 0, duplicates: 0, skipped: 0, resetFiles: [] };
+  const result: IngestResult = { files: 0, inserted: 0, duplicates: 0, skipped: 0, resetFiles: [], removedFiles: [] };
   for (const name of readdirSync(eventsDir).filter((n) => MONTH_FILE.test(n)).sort()) {
     result.files++;
     ingestFile(db, s, eventsDir, name, chunkBytes, uid, result);
   }
-  if (result.resetFiles.length > 0) removeOrphans(db);
+  result.removedFiles = forgetRemovedFiles(db, s, eventsDir);
+  if (result.resetFiles.length > 0 || result.removedFiles.length > 0) removeOrphans(db);
   return result;
 }

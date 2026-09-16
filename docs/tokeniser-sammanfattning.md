@@ -299,7 +299,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
 5. Implementation enligt avsnitt 8. Varje större del kräver fortfarande ditt godkännande.
    - **Klart 2026-09-14:** repot finns privat på GitHub, så projekt identifieras via `github.com/Lullow/tokeniser`.
    - **Klart 2026-09-14:** inläsningen från JSONL till SQLite (punkt 3), med låsfil, läsläge per fil, omläsning av ersatta filer och sammanslagning när en mapp får en repo-identitet.
-   - **Återstår för punkt 3:** dagssummeringar och rensning av rådata efter 90 dagar (Q16).
+   - **Återstod för punkt 3:** dagssummeringar och rensning av rådata (Q16). Klart 2026-09-16, se nedan.
    - **Klart 2026-09-14:** statusraden och snabbkortet (punkt 4), med alla fem lägen, de fyra datatillstånden, varnings- och felfärg, kontext från fönstrets projekt och prognos märkt uppskattning. Klick på statusraden och länken "Öppna Tokeniser" kommer med vyn.
    - **Kontrollerat 2026-09-15 (acceptanskriterium 2):** statusraden visade 5 h 25 % och vecka 6 % från en mätning 00:08. `/usage` visade samtidigt 26 % och 7 %. Det är inom 1 procentenhet och alltså godkänt, men båda värdena låg en enhet lägre. Claude Code skickar heltal i statusraden, så skillnaden beror troligen på olika avrundning. Följs upp: blir skillnaden större än 1 procentenhet är kriteriet inte uppfyllt.
    - **Klart 2026-09-15:** vyn i bottenpanelen (punkt 5) enligt den godkända skissen, med gränsringar, de fyra tillstånden, prognoser, kontextstapel med båda trösklarna, sessionens tokens, kurva över 7 dagar, dagens projekt och förslag med kopieringsknapp. Klick på statusraden och länken i snabbkortet öppnar vyn. Tokens per dag och per session är uppskattningar. Posten "Utanför VS Code" visar "går inte att särskilja än" tills R4 är validerad. VS Code saknar API för att placera en vy i högra sidopanelen, så den placeringen görs med VS Codes egen flytt av vyn.
@@ -377,12 +377,24 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
        - Rensningen körs bara när VS Code är öppet.
      - **Dagssummeringar i `~/.tokeniser/days.jsonl`.**
        - De sparas inte i indexet, eftersom indexet byggs om från rådatan.
-       - Varje dag har, per projekt och modell, sessioner, aktiv tid, tokens, anrop och kostnad. Dagen har också de högsta procenten för 5 h och vecka.
+       - Varje dag har, per projekt, sessioner och aktiv tid, och per modell i projektet tokens, anrop och kostnad. Då räknas en session som byter modell bara en gång. Dagen har också antal händelser och de högsta procenten för 5 h och vecka.
        - Kostnaden räknas som ökningen av sessionens löpande summa, från sessionens första värde. Till skillnad från tokens fångar den även anrop som inte syns som egna uppdateringar.
        - En dag summeras när den har varit slut i en timme. Summeringarna har ett versionsnummer och räknas om när räknesättet ändras, men bara om hela dagens rådata finns kvar.
        - Fönstret som har indexlåset summerar, några dagar per uppdatering.
      - **Export av summeringarna som JSONL, inte CSV.** CSV skulle kräva skydd mot formler och fungera dåligt i Excel med svenska inställningar, och en platt rad per modell räknar en session två gånger om modellen byts. CSV kan läggas till senare.
      - **Ordning:** först rättelsen av dubbelräkningen, sedan dagssummeringar och rensning, sist export och raderingsdialog med skärmbilder.
+   - **Klart 2026-09-16:** dagssummeringar och rensning (Q16, steg 2).
+     - **Var det körs:** fönstret som har indexlåset kör rensningen direkt efter inläsningen, högst var tionde minut. Den summerar högst 7 dagar per varv, och om fler dagar väntar körs nästa varv direkt. Ett fel stoppar aldrig statusraden eller vyn, och rensningen försöks igen vid nästa tillfälle.
+     - **Ordningen skyddar datan:** `days.jsonl` skrivs först, atomärt och med fsync. Skrivningen avbryts om filen har ändrats sedan den lästes. En månadsfil tas bara bort om varje händelse i den ligger före den första dag som inte är klar, och om alla hela rader i filen är inlästa. Går summeringarna inte att spara tas ingen rådata bort.
+     - **Indexet** tar bort händelser, sessioner och projekt från månadsfiler som inte längre finns, vid varje inläsning.
+     - **Samma räkning som kurvan:** anrop och aktiv tid räknas av samma kod som vyn, och ett test visar att summeringarna ger samma tokens per dag som kurvan. Ett anrop som börjar före midnatt räknas med output från raderna efter midnatt, till exempel när svaret blev klart. Därför läser summeringen upp till en timme efter dagens slut, och en dag summeras först en timme efter midnatt.
+     - **Två fel hittades och rättades under bygget:**
+       - Utan raderna efter midnatt fick dagen innan bara output från när svaret började.
+       - I svensk tid börjar 1 september kl. 00:00, som är 31 augusti enligt UTC. Kontrollen av om rådatan var komplett letade efter augustifilen, hoppade över dagen, och sedan togs septemberfilen bort utan summering. Nu gäller kontrollen bara när en befintlig summering räknas om. Testet körs i svensk tid oavsett datorns tidszon, eftersom CI kör i UTC. Enhetstesterna går igenom i fem tidszoner.
+     - **`state/` och `problems.jsonl`:** filer i `state/` som inte har ändrats på 90 dagar tas bort, och `problems.jsonl` tas bort när alla rader är äldre än 90 dagar. Kontraktets lucka 6 är därmed stängd.
+     - **Radering:** `days.jsonl` raderas med övrig insamlad data, och raderingsdialogen räknar upp filen. Skärmbilden av dialogen tas i steg 3.
+     - **Provat på en kopia av den riktiga datan:** 14 och 15 september summerades på 17 ms, med samma tokens som kurvan (17,2 M och 110,6 M). Med datumet satt till 30 december summerades 16 september, och septemberfilen och dess händelser i indexet togs bort. Tre dagars summeringar tar 2,5 kB.
+     - **Öppen fråga till steg 3:** ett fel i rensningen syns inte någonstans. Hälsoraden kan få en kontroll för det.
 
 ---
 
