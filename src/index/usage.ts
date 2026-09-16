@@ -17,8 +17,8 @@ export const tokensOf = (r: CallRow): number => (r.input ?? 0) + (r.output ?? 0)
  * The status line only carries the latest API call, and usually shows it twice: when the
  * response starts, with a few output tokens, and when it is done. Consecutive rows in a session
  * with the same input and cache tokens are therefore one call, counted once with its highest
- * output, at the time it first appeared. Calls between two status line updates are missed,
- * which makes every sum a lower bound (decision Q16: always marked as an estimate).
+ * output, at the time it first appeared. Subagents' calls never reach the status line, which
+ * makes every sum a lower bound (decision Q16: always marked as an estimate).
  */
 export function newCalls<T extends CallRow>(rows: readonly T[]): T[] {
   const open = new Map<string, T>();
