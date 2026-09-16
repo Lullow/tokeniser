@@ -480,7 +480,10 @@ function historyCheck(facts: HealthFacts, now: number): Finding {
 
   const first = issues[0];
   if (first !== undefined) {
-    const action = daysError !== null ? "Tokeniser skriver filen själv, som en vanlig fil som bara du kan läsa. Flytta undan den eller rätta ägare och rättigheter." : undefined;
+    const action =
+      daysError !== null
+        ? "Gör den till en vanlig fil som du äger och bara du kan läsa, till exempel med `chmod 600 ~/.tokeniser/days.jsonl`. Flytta eller ta inte bort den: den kan vara den enda historiken för dagar vars händelser redan är rensade."
+        : undefined;
     return finding("history", label, "warning", issues.map((issue) => issue.text).join(" "), action === undefined ? { title: first.title } : { title: first.title, action });
   }
 

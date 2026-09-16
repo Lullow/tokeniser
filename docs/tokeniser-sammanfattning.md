@@ -395,7 +395,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - **Radering:** `days.jsonl` raderas med övrig insamlad data, och raderingsdialogen räknar upp filen. Skärmbilden av dialogen tas i steg 3.
      - **Provat på en kopia av den riktiga datan:** 14 och 15 september summerades på 17 ms, med samma tokens som kurvan (17,2 M och 110,6 M). Med datumet satt till 30 december summerades 16 september, och septemberfilen och dess händelser i indexet togs bort. Tre dagars summeringar tar 2,5 kB.
      - **Öppen fråga till steg 3:** ett fel i rensningen syns inte någonstans. Hälsoraden kan få en kontroll för det. Beslutat samma dag: ja.
-   - **Byggt 2026-09-16:** export av dagssummeringar och kontroll i hälsoraden (Q16, steg 3). Skärmbilderna återstår.
+   - **Klart 2026-09-16:** export av dagssummeringar och kontroll i hälsoraden (Q16, steg 3), och därmed Q16.
      - **Hälsoraden** har fått en åttonde kontroll, "Dagssummering och rensning". Den utgår från datan och inte bara från det egna fönstret, så alla fönster ser samma sak. Den varnar när
        - en avslutad dag har saknat summering i mer än en timme
        - en månadsfil finns kvar mer än en timme efter att den skulle ha tagits bort
@@ -406,6 +406,17 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - **Inga falsklarm vid start:** under de första 15 minuterna efter start varnar kontrollen inte för dagar eller månadsfiler som ligger efter. Utan den gränsen varnade den på en kopia av den riktiga datan innan något fönster hunnit summera. Ett fönster som läste före ett annat fönsters rensning kunde då visa varningen i upp till en minut.
      - **Exporten** frågar om händelser eller dagssummeringar ska exporteras, om båda finns. Dagssummeringarna sparas som de är i `days.jsonl`, med rättigheterna 0600, och aviseringen säger att tokens och kostnad är uppskattningar.
      - **Dataraden** visar antalet summerade dagar, till exempel "1 166 händelser sedan 14 sep · 2 dagar summerade · 1,7 MB". **Raderingsdialogen** räknar dagssummeringarna och säger att de även gäller dagar vars händelser redan är rensade.
+     - **Kontrollerat med skärmbilder i WSL:**
+       - hälsoraden med åtta kontroller, där "Dagssummering och rensning" visar summerat till och med 15 september och att septemberfilen tas bort tidigast 30 december kl. 01:00
+       - dataraden med "2 dagar summerade"
+       - exportvalet och spara-dialogen med rubriken och filnamnet `tokeniser-dagar-2026-09-16.jsonl`
+       - raderingsdialogen, som avbröts
+       - varningsläget "Dagssummeringarna kan inte läsas", framkallat genom att `days.jsonl` tillfälligt fick rättigheterna 0644. Rättigheterna återställdes, och kontrollsumman visade att innehållet var oförändrat. Dataraden visade då inget antal dagar.
+
+       `days.jsonl` skapades på riktigt kl. 21:39 med rättigheterna 0600 och två dagar. Aviseringen efter exporten kom inte med, eftersom filen aldrig sparades. Den täcks av enhetstester och en körning mot en kopia av den riktiga datan.
+     - **Rättat efter skärmbilderna:**
+       - Förklaringen i exportvalet klipptes av och är nu kortare.
+       - Åtgärden vid en oläsbar `days.jsonl` sa "Flytta undan den". Efter en rensning kan filen vara den enda historiken för dagar vars händelser är borta, och en flyttad fil ersätts av en ny och tom. Åtgärden säger nu hur rättigheterna rättas, och att filen inte ska flyttas eller tas bort.
 
 ---
 

@@ -317,7 +317,7 @@ test("dagssummering och rensning varnar när dagar eller månadsfiler ligger eft
   assert.equal(unreadable.title, "Dagssummeringarna kan inte läsas");
   const row = unreadable.checks.find((c) => c.id === "history");
   assert.equal(row?.detail, "`~/.tokeniser/days.jsonl` är en symbolisk länk. Inga nya dagar summeras, och ingen rådata rensas så länge.");
-  assert.match(row?.action ?? "", /Flytta undan den eller rätta ägare och rättigheter\./);
+  assert.match(row?.action ?? "", /`chmod 600 ~\/\.tokeniser\/days\.jsonl`\. Flytta eller ta inte bort den: den kan vara den enda historiken/);
 
   const error = "EACCES: permission denied, open `~/.tokeniser/.days.jsonl.tmp`";
   const failing = buildHealth(facts({ history: { maintenance: { startedAt: NOW - 3 * HOUR, failingSince: NOW - 25 * MIN, error, pending: false } } }), NOW);
