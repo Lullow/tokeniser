@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { collectorLayout, statusLineCommand } from "../../src/connect/plan.ts";
 import { buildHealth, type HealthFacts, type RuntimeFacts } from "../../src/health/model.ts";
 import { readHealthFacts } from "../../src/health/read.ts";
+import { localDate } from "../../src/history/summary.ts";
 import { openIndex } from "../../src/index/db.ts";
 import { ingest } from "../../src/index/ingest.ts";
 import { ensurePrivateDir, sha256 } from "../../src/secure/fs.ts";
@@ -74,6 +75,7 @@ function read(s: Setup, options: { events?: string[]; folders?: string[] } = {})
       workspaceFolders: options.folders ?? [s.folder],
       index: { db },
       inWindowProject: true,
+      maintenance: { startedAt: NOW - 60 * MIN, failingSince: null, error: null, pending: false },
       now: NOW,
     });
   } finally {
@@ -103,6 +105,34 @@ test("hälsokontrollen läser insamlaren, mapparna, inställningarna och indexet
 
   const health = buildHealth(f, NOW);
   assert.equal(health.level, "ok", JSON.stringify(health.checks, null, 2));
+});
+
+test("dagssummering och rensning läses från days.jsonl, indexet och månadsfilerna", () => {
+  const s = setup();
+  const old = NOW - 5 * 24 * 60 * MIN;
+  const f = read(s, { events: [eventLine({ at: old }), eventLine({ at: NOW - 2 * MIN })] });
+  if (!f.history.ok) assert.fail(f.history.error);
+  assert.deepEqual(f.history.value, {
+    summarizedDays: 0,
+    lastSummarized: null,
+    overdueDays: [localDate(old)],
+    overdueMonths: [],
+    nextRemoval: { name: "2026-09.jsonl", dueAt: Date.UTC(2026, 9, 1) + 90 * 24 * 60 * MIN },
+    daysError: null,
+    maintenance: { startedAt: NOW - 60 * MIN, failingSince: null, error: null, pending: false },
+  });
+  assert.equal(buildHealth(f, NOW).title, "Dagssummeringen ligger efter");
+
+  writeFileSync(join(s.home, "days.jsonl"), `${JSON.stringify({ v: 1, date: localDate(old) })}\n`, { mode: 0o600 });
+  const summarized = read(s);
+  if (!summarized.history.ok) assert.fail(summarized.history.error);
+  assert.deepEqual([summarized.history.value.summarizedDays, summarized.history.value.overdueDays], [1, []]);
+
+  unlinkSync(join(s.home, "days.jsonl"));
+  symlinkSync(join(s.root, "någon-annan.jsonl"), join(s.home, "days.jsonl"));
+  const linked = buildHealth(read(s), NOW);
+  assert.equal(linked.title, "Dagssummeringarna kan inte läsas");
+  assert.match(linked.checks.find((c) => c.id === "history")?.detail ?? "", /^`~\/\.tokeniser\/days\.jsonl` är en symbolisk länk\./);
 });
 
 test("en ändrad insamlare och en mapp som andra kan läsa upptäcks", () => {

@@ -10,6 +10,8 @@ import {
   type CollectorLayout,
   type ConnectionState,
 } from "../connect/plan.ts";
+import { readDays, type DaysFile } from "../history/days-file.ts";
+import { historyStatus } from "../history/maintain.ts";
 import {
   assertPrivateDir,
   assertTrustedAncestors,
@@ -26,6 +28,8 @@ import {
   type DataFacts,
   type ExecutableCheck,
   type HealthFacts,
+  type HistoryFacts,
+  type MaintenanceState,
   type Outcome,
   type ProblemCount,
   type RuntimeFacts,
@@ -63,6 +67,8 @@ export interface HealthInput {
   workspaceFolders: readonly string[];
   index: HealthIndex;
   inWindowProject: boolean | null;
+  /** How this window's passes of summaries and retention have gone. */
+  maintenance: MaintenanceState;
   now: number;
   uid?: number;
 }
@@ -324,6 +330,22 @@ function readSettings(input: HealthInput, command: string): SettingsFacts {
   return { managed, user, folders, unreadable };
 }
 
+function readHistory(input: HealthInput, db: DatabaseSync, uid: number): HistoryFacts {
+  let file: DaysFile | null = null;
+  let daysError: string | null = null;
+  try {
+    file = readDays(input.home, uid);
+  } catch (error) {
+    daysError = reasonOf(error);
+  }
+  const { error } = input.maintenance;
+  return {
+    ...historyStatus(db, input.home, input.now, file, uid),
+    daysError,
+    maintenance: { ...input.maintenance, error: error === null ? null : shorten(error) },
+  };
+}
+
 function shortenPaths<T>(outcome: Outcome<T>): Outcome<T> {
   return outcome.ok ? outcome : { ok: false, error: shorten(outcome.error) };
 }
@@ -344,5 +366,6 @@ export function readHealthFacts(input: HealthInput): HealthFacts {
     directories: shortenPaths(attempt(() => checkDirectories(layout, uid))),
     runtime: shortenPaths(connection.ok ? attempt(() => readRuntime(layout, connection.value, uid)) : unknownCommand),
     settings: shortenPaths(connection.ok ? attempt(() => readSettings(input, connection.value.command)) : unknownCommand),
+    history: shortenPaths("db" in index ? attempt(() => readHistory(input, index.db, uid)) : { ok: false, error: index.error }),
   };
 }

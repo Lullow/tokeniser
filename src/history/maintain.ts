@@ -22,6 +22,8 @@ export const RETENTION_MS = 90 * DAY_MS;
 export const SETTLE_MS = FOLLOW_MS;
 /** Keeps one pass short when much is waiting; the rest follows in the next pass. */
 export const MAX_DAYS_PER_PASS = 7;
+/** An open window runs a pass every ten minutes, so a step this late counts as overdue in the health check. */
+export const OVERDUE_MS = 60 * 60 * 1000;
 
 const MONTH_POLICY = { private: true, maxBytes: 512 * 1024 * 1024 };
 const PROBLEMS_POLICY = { private: true, maxBytes: 16 * 1024 * 1024 };
@@ -38,6 +40,24 @@ export interface MaintenanceResult {
   removedMonths: string[];
   removedStateFiles: number;
   removedProblems: boolean;
+}
+
+export interface MonthRemoval {
+  name: string;
+  dueAt: number;
+}
+
+/** What the health check needs to know, read without changing anything. */
+export interface HistoryStatus {
+  summarizedDays: number;
+  /** The latest local date with a summary. */
+  lastSummarized: string | null;
+  /** Local dates with events and no summary, more than an hour after they were due. */
+  overdueDays: string[];
+  /** Month files still there more than an hour after they were due for removal. */
+  overdueMonths: MonthRemoval[];
+  /** The next month file due for removal, when none is overdue yet. */
+  nextRemoval: MonthRemoval | null;
 }
 
 export interface MaintenanceOptions {
@@ -183,6 +203,31 @@ function removeOldProblems(path: string, now: number, uid: number): boolean {
     throw error;
   }
   return true;
+}
+
+/** Without a readable days.jsonl, days are not checked; the health check reports the file instead. */
+export function historyStatus(db: DatabaseSync, home: string, now: number, file: DaysFile | null, uid = currentUid()): HistoryStatus {
+  const eventsDir = join(home, "events");
+  assertPrivateDir(eventsDir, uid);
+  const dates = [...(file?.days.keys() ?? [])].sort();
+  const status: HistoryStatus = { summarizedDays: dates.length, lastSummarized: dates.at(-1) ?? null, overdueDays: [], overdueMonths: [], nextRemoval: null };
+
+  const oldest = numberOrNull((db.prepare("SELECT MIN(received_at) AS at FROM events").get() as Row | undefined)?.at);
+  if (file !== null && oldest !== null) {
+    const hasEvents = db.prepare("SELECT 1 AS found FROM events WHERE received_at >= ? AND received_at < ? LIMIT 1");
+    for (let start = dayStartOf(oldest); ; start = nextDayStart(start)) {
+      const end = nextDayStart(start);
+      if (end + SETTLE_MS + OVERDUE_MS > now) break;
+      if (!file.days.has(localDate(start)) && hasEvents.get(start, end) !== undefined) status.overdueDays.push(localDate(start));
+    }
+  }
+  for (const name of readdirSync(eventsDir).filter((n) => MONTH_FILE.test(n)).sort()) {
+    const removal = { name, dueAt: monthEnd(name) + RETENTION_MS };
+    if (removal.dueAt + OVERDUE_MS <= now) status.overdueMonths.push(removal);
+    else status.nextRemoval ??= removal;
+  }
+  if (status.overdueMonths.length > 0) status.nextRemoval = null;
+  return status;
 }
 
 /**

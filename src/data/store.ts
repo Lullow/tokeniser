@@ -2,6 +2,8 @@ import { lstatSync, readdirSync, rmdirSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { DAYS_POLICY, daysPath, readDays } from "../history/days-file.ts";
+import { dateStart } from "../history/summary.ts";
 import { deleteIndex, indexPaths } from "../index/db.ts";
 import { MONTH_FILE } from "../index/ingest.ts";
 import { tryAcquireLock } from "../index/lock.ts";
@@ -38,6 +40,10 @@ function exists(path: string): boolean {
 export interface StorageSummary {
   events: number;
   firstAt: number | null;
+  /** Summarized days; null when days.jsonl cannot be read. */
+  days: number | null;
+  /** Local midnight of the first summarized day. */
+  firstDay: number | null;
   bytes: number;
 }
 
@@ -68,7 +74,16 @@ function sizeOf(home: string): number {
   return total;
 }
 
-/** The data row: how many events the index holds, since when, and the size of ~/.tokeniser. Null when it does not exist. */
+function summarizedDays(home: string): Pick<StorageSummary, "days" | "firstDay"> {
+  try {
+    const dates = [...readDays(home).days.keys()].sort();
+    return { days: dates.length, firstDay: dates[0] === undefined ? null : dateStart(dates[0]) };
+  } catch {
+    return { days: null, firstDay: null };
+  }
+}
+
+/** The data row: events in the index and since when, summarized days, and the size of ~/.tokeniser. Null when it does not exist. */
 export function readStorage(home: string, db: DatabaseSync | null): StorageSummary | null {
   try {
     if (!lstatSync(home).isDirectory()) return null;
@@ -77,12 +92,15 @@ export function readStorage(home: string, db: DatabaseSync | null): StorageSumma
     throw error;
   }
   const row = db?.prepare("SELECT COUNT(*) AS n, MIN(received_at) AS first FROM events").get() as Record<string, unknown> | undefined;
-  return { events: numberOrNull(row?.n) ?? 0, firstAt: numberOrNull(row?.first), bytes: sizeOf(home) };
+  return { events: numberOrNull(row?.n) ?? 0, firstAt: numberOrNull(row?.first), ...summarizedDays(home), bytes: sizeOf(home) };
 }
+
+export type ExportKind = "events" | "days";
 
 export interface ExportResult {
   path: string;
-  events: number;
+  /** Events or summarized days, one line each. */
+  lines: number;
   /** The mode the file actually got, which a Windows drive does not honor. */
   mode: number;
 }
@@ -92,11 +110,22 @@ export interface ExportResult {
  * still writing is left out. The file is written atomically with mode 0600, and a symlink at the
  * target is replaced rather than followed.
  */
-export function exportEvents(home: string, target: string, uid = currentUid()): ExportResult {
+function exportTarget(home: string, target: string): string {
   const path = resolve(target);
   if (path === home || path.startsWith(`${home}${sep}`)) {
     throw new Error("Exporten kan inte sparas i ~/.tokeniser, eftersom en radering tar bort det som ligger där.");
   }
+  return path;
+}
+
+const countLines = (bytes: Buffer): number => {
+  let lines = 0;
+  for (let i = bytes.indexOf(NEWLINE); i !== -1; i = bytes.indexOf(NEWLINE, i + 1)) lines++;
+  return lines;
+};
+
+export function exportEvents(home: string, target: string, uid = currentUid()): ExportResult {
+  const path = exportTarget(home, target);
   const events = join(home, "events");
   assertTrustedAncestors(home, uid);
   assertPrivateDir(events, uid);
@@ -107,12 +136,22 @@ export function exportEvents(home: string, target: string, uid = currentUid()): 
     const file = readFileChecked(join(events, name), { private: true, maxBytes: EXPORT_MAX_BYTES }, uid);
     if (file === null) continue;
     const complete = file.bytes.subarray(0, file.bytes.lastIndexOf(NEWLINE) + 1);
-    for (let i = complete.indexOf(NEWLINE); i !== -1; i = complete.indexOf(NEWLINE, i + 1)) lines++;
+    lines += countLines(complete);
     if (complete.length > 0) parts.push(complete);
   }
 
   replaceFileAtomic(path, Buffer.concat(parts), { mode: 0o600, exactMode: true, durable: true }, uid);
-  return { path, events: lines, mode: lstatSync(path).mode & 0o7777 };
+  return { path, lines, mode: lstatSync(path).mode & 0o7777 };
+}
+
+/** Decision Q16: days.jsonl as it is, written the same way as the events. */
+export function exportDays(home: string, target: string, uid = currentUid()): ExportResult {
+  const path = exportTarget(home, target);
+  assertTrustedAncestors(home, uid);
+  assertPrivateDir(home, uid);
+  const bytes = readFileChecked(daysPath(home), DAYS_POLICY, uid)?.bytes ?? Buffer.alloc(0);
+  replaceFileAtomic(path, bytes, { mode: 0o600, exactMode: true, durable: true }, uid);
+  return { path, lines: countLines(bytes), mode: lstatSync(path).mode & 0o7777 };
 }
 
 /** Collected data only while connected, since the collector needs its directories; everything otherwise. */

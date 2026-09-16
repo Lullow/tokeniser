@@ -394,7 +394,18 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - **`state/` och `problems.jsonl`:** filer i `state/` som inte har ändrats på 90 dagar tas bort, och `problems.jsonl` tas bort när alla rader är äldre än 90 dagar. Kontraktets lucka 6 är därmed stängd.
      - **Radering:** `days.jsonl` raderas med övrig insamlad data, och raderingsdialogen räknar upp filen. Skärmbilden av dialogen tas i steg 3.
      - **Provat på en kopia av den riktiga datan:** 14 och 15 september summerades på 17 ms, med samma tokens som kurvan (17,2 M och 110,6 M). Med datumet satt till 30 december summerades 16 september, och septemberfilen och dess händelser i indexet togs bort. Tre dagars summeringar tar 2,5 kB.
-     - **Öppen fråga till steg 3:** ett fel i rensningen syns inte någonstans. Hälsoraden kan få en kontroll för det.
+     - **Öppen fråga till steg 3:** ett fel i rensningen syns inte någonstans. Hälsoraden kan få en kontroll för det. Beslutat samma dag: ja.
+   - **Byggt 2026-09-16:** export av dagssummeringar och kontroll i hälsoraden (Q16, steg 3). Skärmbilderna återstår.
+     - **Hälsoraden** har fått en åttonde kontroll, "Dagssummering och rensning". Den utgår från datan och inte bara från det egna fönstret, så alla fönster ser samma sak. Den varnar när
+       - en avslutad dag har saknat summering i mer än en timme
+       - en månadsfil finns kvar mer än en timme efter att den skulle ha tagits bort
+       - `days.jsonl` inte går att läsa, till exempel om den är en symbolisk länk eller har fel rättigheter
+       - rensningen i fönstret har misslyckats i minst 20 minuter, alltså minst två försök i rad
+
+       När allt är i ordning visar kontrollen vilken dag som senast summerades, hur många dagar som finns och när nästa månadsfil tas bort.
+     - **Inga falsklarm vid start:** under de första 15 minuterna efter start varnar kontrollen inte för dagar eller månadsfiler som ligger efter. Utan den gränsen varnade den på en kopia av den riktiga datan innan något fönster hunnit summera. Ett fönster som läste före ett annat fönsters rensning kunde då visa varningen i upp till en minut.
+     - **Exporten** frågar om händelser eller dagssummeringar ska exporteras, om båda finns. Dagssummeringarna sparas som de är i `days.jsonl`, med rättigheterna 0600, och aviseringen säger att tokens och kostnad är uppskattningar.
+     - **Dataraden** visar antalet summerade dagar, till exempel "1 166 händelser sedan 14 sep · 2 dagar summerade · 1,7 MB". **Raderingsdialogen** räknar dagssummeringarna och säger att de även gäller dagar vars händelser redan är rensade.
 
 ---
 

@@ -74,6 +74,12 @@ export const localDate = (ms: number): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
+/** Local midnight of a date such as "2026-09-14". */
+export const dateStart = (date: string): number => {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1).getTime();
+};
+
 const COLUMNS = `id, session_id AS sessionId, project_id AS projectId, model_id AS model, received_at AS at,
   usage_input AS input, usage_output AS output, usage_cache_creation AS cacheCreation, usage_cache_read AS cacheRead,
   cost_usd AS costUsd, five_used AS fiveUsed, week_used AS weekUsed`;

@@ -3,9 +3,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import * as vscode from "vscode";
-import { deleteData, deleteScope, exportEvents, readStorage, type StorageSummary } from "./data/store.ts";
-import { deleteDialog, deleteDone, exportDone, exportTitle } from "./data/text.ts";
-import { buildHealth, type HealthFacts } from "./health/model.ts";
+import { deleteData, deleteScope, exportDays, exportEvents, readStorage, type StorageSummary } from "./data/store.ts";
+import { deleteDialog, deleteDone, exportChoices, exportDone, exportTitle } from "./data/text.ts";
+import { buildHealth, type HealthFacts, type MaintenanceState } from "./health/model.ts";
 import { MANAGED_DIR, readHealthFacts, type HealthIndex } from "./health/read.ts";
 import { maintain } from "./history/maintain.ts";
 import { localDate } from "./history/summary.ts";
@@ -96,6 +96,7 @@ class Controller implements vscode.Disposable {
   private watcher: FSWatcher | undefined;
   private pending: NodeJS.Timeout | undefined;
   private nextMaintenance = 0;
+  private maintenanceState: MaintenanceState = { startedAt: Date.now(), failingSince: null, error: null, pending: false };
 
   constructor(extensionUri: vscode.Uri) {
     this.provider = new TokeniserViewProvider(
@@ -198,18 +199,23 @@ class Controller implements vscode.Disposable {
     this.render();
   }
 
-  /** Decision Q16, in the window holding the index lock. A failure is tried again at the next interval. */
+  /**
+   * Decision Q16, in the window holding the index lock. A failure never stops the status line or the
+   * view: it is tried again at the next interval, and the health check warns once it keeps failing.
+   */
   private maintain(db: DatabaseSync): void {
     const now = Date.now();
     if (now < this.nextMaintenance) return;
     this.nextMaintenance = now + MAINTAIN_EVERY_MS;
     try {
-      if (maintain(db, this.home, now).pending) {
+      const { pending } = maintain(db, this.home, now);
+      this.maintenanceState = { ...this.maintenanceState, failingSince: null, error: null, pending };
+      if (pending) {
         this.nextMaintenance = 0;
         this.scheduleRefresh();
       }
-    } catch {
-      // The status line and the view must keep working; the data is still there to try again.
+    } catch (error) {
+      this.maintenanceState = { ...this.maintenanceState, failingSince: this.maintenanceState.failingSince ?? now, error: messageOf(error), pending: false };
     }
   }
 
@@ -222,6 +228,7 @@ class Controller implements vscode.Disposable {
       workspaceFolders: workspaceFolders(),
       index,
       inWindowProject,
+      maintenance: this.maintenanceState,
       now: Date.now(),
     });
   }
@@ -283,16 +290,23 @@ class Controller implements vscode.Disposable {
     else await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:lullo.tokeniser");
   }
 
-  /** Point 8: the place is an active choice, and the notice afterwards says what the file holds and who can read it. */
+  /**
+   * Point 8: the place is an active choice, and the notice afterwards says what the file holds and who
+   * can read it. Decision Q16: the daily summaries can be exported too, since they outlive the events.
+   */
   private async exportData(): Promise<void> {
     const storage = this.freshStorage();
-    if (storage === null || storage.events === 0) {
+    const choices = storage === null ? [] : exportChoices(storage, Date.now());
+    if (storage === null || choices.length === 0) {
       void vscode.window.showInformationMessage("Det finns ingen insamlad data att exportera.");
       return;
     }
+    const choice = choices.length === 1 ? choices[0] : await vscode.window.showQuickPick(choices, { title: "Exportera från Tokeniser", placeHolder: "Vad vill du exportera?" });
+    if (choice === undefined) return;
+    const name = choice.content === "events" ? "tokeniser-export" : "tokeniser-dagar";
     const target = await vscode.window.showSaveDialog({
-      title: exportTitle(storage),
-      defaultUri: vscode.Uri.file(join(homedir(), `tokeniser-export-${localDate(Date.now())}.jsonl`)),
+      title: exportTitle(choice.content, storage),
+      defaultUri: vscode.Uri.file(join(homedir(), `${name}-${localDate(Date.now())}.jsonl`)),
       filters: { "JSON Lines": ["jsonl"] },
     });
     if (target === undefined) return;
@@ -301,7 +315,8 @@ class Controller implements vscode.Disposable {
       return;
     }
     try {
-      void vscode.window.showInformationMessage(exportDone(exportEvents(this.home, target.fsPath)));
+      const result = choice.content === "events" ? exportEvents(this.home, target.fsPath) : exportDays(this.home, target.fsPath);
+      void vscode.window.showInformationMessage(exportDone(choice.content, result));
     } catch (error) {
       void vscode.window.showErrorMessage(`Exporten avbröts: ${messageOf(error)}`);
     }

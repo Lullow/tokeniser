@@ -52,8 +52,9 @@ const tests: [string, (api: TestApi) => Promise<void>][] = [
       assert.equal(model.unavailable, null);
       assert.equal(model.limits.rings[0].value, 17);
       assert.equal(model.limits.rings[1].value, 5);
-      assert.equal(model.health?.checks.length, 7);
+      assert.equal(model.health?.checks.length, 8);
       assert.equal(model.health?.checks.find((check) => check.id === "collector")?.mark, "ok");
+      assert.equal(model.health?.checks.find((check) => check.id === "history")?.mark, "ok");
     },
   ],
 ];

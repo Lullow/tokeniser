@@ -1,10 +1,19 @@
-import { duration, moment } from "../status/format.ts";
+import type { HistoryStatus } from "../history/maintain.ts";
+import { dateStart } from "../history/summary.ts";
+import { duration, moment, shortDate } from "../status/format.ts";
 import type { HealthCheck, HealthMark, HealthModel } from "../view/types.ts";
 
 /** The only command the health check offers to copy. Nothing is ever run. */
 export const DISCONNECT_COMMAND = "npm run connect -- --disconnect";
 /** Rejected runs and invalid fields count for this long. */
 export const RECENT_MS = 24 * 60 * 60 * 1000;
+/** Two failed passes in a row, so one pass that collides with another window is no warning. */
+export const FAILING_MS = 20 * 60 * 1000;
+/**
+ * After VS Code starts, some window runs a pass within ten minutes. Until then, days and month files
+ * that are behind are no warning, so a window that read before another window's pass shows no false alarm.
+ */
+export const CATCH_UP_MS = 15 * 60 * 1000;
 
 export type Outcome<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -75,6 +84,23 @@ export interface SettingsFacts {
   unreadable: { file: string; error: string }[];
 }
 
+/** Summaries and retention as this window has run them; other windows run their own passes. */
+export interface MaintenanceState {
+  /** When this window started, and with it its passes. */
+  startedAt: number;
+  /** When the passes started failing; null once a pass works. */
+  failingSince: number | null;
+  error: string | null;
+  /** More days wait for a summary, and the next pass follows at once. */
+  pending: boolean;
+}
+
+export interface HistoryFacts extends HistoryStatus {
+  /** Why days.jsonl cannot be read; nothing new is then summarized and no raw data removed. */
+  daysError: string | null;
+  maintenance: MaintenanceState;
+}
+
 export interface HealthFacts {
   checkedAt: number;
   data: Outcome<DataFacts>;
@@ -85,6 +111,7 @@ export interface HealthFacts {
   directories: Outcome<null>;
   runtime: Outcome<RuntimeFacts>;
   settings: Outcome<SettingsFacts>;
+  history: Outcome<HistoryFacts>;
 }
 
 const STATE: Record<HealthMark, string> = {
@@ -409,6 +436,69 @@ function statusLineCheck(facts: HealthFacts): Finding {
   );
 }
 
+const days = (n: number): string => `${n} ${n === 1 ? "dag" : "dagar"}`;
+
+/** Decision Q16: a day is summarized before raw data from it goes, 90 days after its month ended. */
+function historyCheck(facts: HealthFacts, now: number): Finding {
+  const label = "Dagssummering och rensning";
+  if (!facts.history.ok) return finding("history", label, "unknown", `Kan inte kontrolleras: ${plain(facts.history.error)}`);
+  const { summarizedDays, lastSummarized, overdueDays, overdueMonths, nextRemoval, daysError, maintenance } = facts.history.value;
+  const issues: Issue[] = [];
+
+  if (daysError !== null) {
+    issues.push({
+      title: "Dagssummeringarna kan inte läsas",
+      text: `\`~/.tokeniser/days.jsonl\` ${plain(daysError)}. Inga nya dagar summeras, och ingen rådata rensas så länge.`,
+    });
+  }
+  const catchingUp = maintenance.pending || now - maintenance.startedAt < CATCH_UP_MS;
+  const firstDay = overdueDays[0];
+  if (firstDay !== undefined && !catchingUp) {
+    issues.push({
+      title: "Dagssummeringen ligger efter",
+      text: `${days(overdueDays.length)} med data saknar summering, den äldsta ${shortDate(dateStart(firstDay), now)}. Rådata från de dagarna rensas inte förrän de är summerade.`,
+    });
+  }
+  const firstMonth = overdueMonths[0];
+  if (firstMonth !== undefined && !catchingUp) {
+    const files = overdueMonths.map((month) => `\`events/${plain(month.name)}\``);
+    issues.push({
+      title: "Gammal rådata har inte rensats",
+      text:
+        files.length === 1
+          ? `${list(files)} skulle ha tagits bort ${moment(firstMonth.dueAt, now)}.`
+          : `${list(files)} finns kvar, fast den första skulle ha tagits bort ${moment(firstMonth.dueAt, now)}.`,
+    });
+  }
+  const failing = maintenance.failingSince !== null && now - maintenance.failingSince >= FAILING_MS;
+  if (failing && maintenance.failingSince !== null) {
+    issues.push({
+      title: "Dagssummering och rensning misslyckas",
+      text: `Varje försök sedan ${moment(maintenance.failingSince, now)} har misslyckats: ${plain(maintenance.error ?? "okänt fel")}. Ingen rådata tas bort förrän det fungerar igen.`,
+    });
+  }
+
+  const first = issues[0];
+  if (first !== undefined) {
+    const action = daysError !== null ? "Tokeniser skriver filen själv, som en vanlig fil som bara du kan läsa. Flytta undan den eller rätta ägare och rättigheter." : undefined;
+    return finding("history", label, "warning", issues.map((issue) => issue.text).join(" "), action === undefined ? { title: first.title } : { title: first.title, action });
+  }
+
+  const parts = [
+    lastSummarized === null
+      ? "Inga dagar är summerade än. En dag summeras en timme efter midnatt."
+      : `Summerat till och med ${shortDate(dateStart(lastSummarized), now)}, ${days(summarizedDays)} i \`days.jsonl\`.`,
+  ];
+  if (catchingUp && (overdueDays.length > 0 || overdueMonths.length > 0)) parts.push("Äldre dagar summeras och gammal rådata rensas just nu.");
+  if (maintenance.failingSince !== null) parts.push("Senaste försöket misslyckades och görs om inom 10 min.");
+  parts.push(
+    nextRemoval === null || overdueMonths.length > 0
+      ? "Rådata sparas i 90–121 dagar."
+      : `Rådata sparas i 90–121 dagar, och \`events/${plain(nextRemoval.name)}\` tas bort tidigast ${moment(nextRemoval.dueAt, now)}.`,
+  );
+  return finding("history", label, "ok", parts.join(" "));
+}
+
 /** Decision point 7 and 2026-09-15: one row per check, first in the view, open only when something is wrong. */
 export function buildHealth(facts: HealthFacts, now: number): HealthModel {
   const findings = [
@@ -418,6 +508,7 @@ export function buildHealth(facts: HealthFacts, now: number): HealthModel {
     directoriesCheck(facts),
     statusLineCheck(facts),
     runtimeCheck(facts),
+    historyCheck(facts, now),
     finding("out-of-reach", "Utom räckhåll", "unknown", OUT_OF_REACH),
   ];
   const warnings = findings.filter((f) => f.check.mark === "warning");

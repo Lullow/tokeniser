@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { deleteData, deleteScope, exportEvents, readStorage } from "../../src/data/store.ts";
+import { deleteData, deleteScope, exportDays, exportEvents, readStorage } from "../../src/data/store.ts";
 import { indexPaths, openIndex } from "../../src/index/db.ts";
 import { ingest } from "../../src/index/ingest.ts";
 import { tryAcquireLock } from "../../src/index/lock.ts";
@@ -26,7 +26,7 @@ function populated(connected: boolean): string {
   appendEvents(home, "2026-09", [eventLine({ at: T0 }), eventLine({ at: T0 + MIN })]);
   writeFileSync(join(home, "state", "session-a.last"), "x".repeat(64), { mode: 0o600 });
   writeFileSync(join(home, "state", "problems.jsonl"), '{"at":1,"kind":"not_json"}\n', { mode: 0o600 });
-  writeFileSync(join(home, "days.jsonl"), '{"v":1,"date":"2026-08-25"}\n', { mode: 0o600 });
+  writeFileSync(join(home, "days.jsonl"), '{"v":1,"date":"2026-08-25"}\n{"v":1,"date":"2026-09-14"}\n', { mode: 0o600 });
   writeFileSync(join(home, ".days.jsonl.0123456789abcdef.tmp"), "", { mode: 0o600 });
   const db = openIndex(home);
   try {
@@ -44,6 +44,8 @@ test("dataraden räknar händelser, första händelsen och storleken", () => {
     const storage = readStorage(home, db);
     assert.equal(storage?.events, 3);
     assert.equal(storage?.firstAt, EARLY);
+    assert.equal(storage?.days, 2);
+    assert.equal(storage?.firstDay, new Date(2026, 7, 25).getTime());
     assert.ok((storage?.bytes ?? 0) > 1000);
   } finally {
     db.close();
@@ -62,7 +64,7 @@ test("exporten tar alla hela rader i månadsordning, med 0600 och utan att följ
   symlinkSync(other, target);
 
   const result = exportEvents(home, target);
-  assert.deepEqual(result, { path: target, events: 3, mode: 0o600 });
+  assert.deepEqual(result, { path: target, lines: 3, mode: 0o600 });
   assert.ok(lstatSync(target).isFile(), "länken ersattes av en vanlig fil");
   assert.equal(readFileSync(other, "utf8"), "orörd");
   const times = readFileSync(target, "utf8")
@@ -72,6 +74,19 @@ test("exporten tar alla hela rader i månadsordning, med 0600 och utan att följ
   assert.deepEqual(times, [EARLY, T0, T0 + MIN]);
 
   assert.throws(() => exportEvents(home, join(home, "export.jsonl")), /kan inte sparas i ~\/\.tokeniser/);
+});
+
+test("dagssummeringarna exporteras som de är, med 0600, och en fil som inte går att läsa stoppar exporten", () => {
+  const home = populated(true);
+  const out = mkdtempSync(join(tmpdir(), "tokeniser-export-"));
+  const target = join(out, "dagar.jsonl");
+  assert.deepEqual(exportDays(home, target), { path: target, lines: 2, mode: 0o600 });
+  assert.equal(readFileSync(target, "utf8"), readFileSync(join(home, "days.jsonl"), "utf8"));
+  assert.throws(() => exportDays(home, join(home, "state", "dagar.jsonl")), /kan inte sparas i ~\/\.tokeniser/);
+
+  chmodSync(join(home, "days.jsonl"), 0o644);
+  assert.throws(() => exportDays(home, join(out, "annan.jsonl")), /rättigheterna 0644/);
+  assert.equal(readStorage(home, null)?.days, null, "dataraden visar inga dagar när filen inte går att läsa");
 });
 
 test("ansluten: insamlad data raderas, men mappar, anslutning och okända filer finns kvar", () => {

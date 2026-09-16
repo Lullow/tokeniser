@@ -122,6 +122,6 @@ test("förslag, senaste mätning och en modell som går att skicka till vyn", ()
   assert.equal(m.health, null);
   assert.equal(buildViewModel(snap(), DATA, VIEW_SETTINGS, NOW, HEALTH_WARNING).health, HEALTH_WARNING);
   assert.equal(m.data, null);
-  const storage = { events: 1842, firstAt: NOW - DAY, bytes: 2.1 * 1024 * 1024 };
+  const storage = { events: 1842, firstAt: NOW - DAY, days: null, firstDay: null, bytes: 2.1 * 1024 * 1024 };
   assert.match(buildViewModel(snap(), DATA, VIEW_SETTINGS, NOW, null, storage).data?.summary ?? "", /^1\s842 händelser sedan \d{1,2}\ssep · 2,1\sMB i `~\/\.tokeniser`$/u);
 });

@@ -6,6 +6,7 @@ import {
   type CollectorFacts,
   type DataFacts,
   type HealthFacts,
+  type HistoryFacts,
   type LatestEvent,
   type ProblemCount,
   type RuntimeFacts,
@@ -37,6 +38,7 @@ interface Options {
   collector?: Partial<CollectorFacts>;
   settings?: Partial<SettingsFacts>;
   runtime?: Partial<RuntimeFacts>;
+  history?: Partial<HistoryFacts>;
   inWindowProject?: boolean | null;
 }
 
@@ -72,6 +74,19 @@ function facts(o: Options = {}): HealthFacts {
       value: { commandMatches: true, node: { file: NODE, status: "ok" }, env: { file: "/usr/bin/env", status: "ok" }, ...o.runtime },
     },
     settings: { ok: true, value: { managed: [], user: file(), folders: [{ name: "tokeniser", local: null, project: null }], unreadable: [], ...o.settings } },
+    history: {
+      ok: true,
+      value: {
+        summarizedDays: 2,
+        lastSummarized: "2026-09-14",
+        overdueDays: [],
+        overdueMonths: [],
+        nextRemoval: { name: "2026-09.jsonl", dueAt: Date.UTC(2026, 11, 30) },
+        daysError: null,
+        maintenance: { startedAt: NOW - 3 * HOUR, failingSince: null, error: null, pending: false },
+        ...o.history,
+      },
+    },
   };
 }
 
@@ -81,11 +96,11 @@ function check(f: HealthFacts, id: string): HealthCheck {
   return found;
 }
 
-test("allt i ordning: sju kontroller i fast ordning, och varje läge står i ord", () => {
+test("allt i ordning: åtta kontroller i fast ordning, och varje läge står i ord", () => {
   const health = buildHealth(facts(), NOW);
   assert.equal(health.level, "ok");
   assert.equal(health.title, "Allt i ordning");
-  assert.match(health.summary, /^6 kontroller i ordning · kontrollerat kl\.\s\d{2}:\d{2}$/u);
+  assert.match(health.summary, /^7 kontroller i ordning · kontrollerat kl\.\s\d{2}:\d{2}$/u);
   assert.deepEqual(
     health.checks.map((c) => [c.id, c.mark, c.state]),
     [
@@ -95,12 +110,13 @@ test("allt i ordning: sju kontroller i fast ordning, och varje läge står i ord
       ["directories", "ok", "I ordning"],
       ["statusline", "ok", "I ordning"],
       ["runtime", "ok", "I ordning"],
+      ["history", "ok", "I ordning"],
       ["out-of-reach", "unknown", "Kan inte kontrolleras"],
     ],
   );
   assert.match(health.checks[0]?.detail ?? "", /^kl\.\s\d{2}:\d{2}, för 1 min sedan · session `344a3a30` · Lullow\/tokeniser · Claude Code 2\.1\.270\.$/u);
   assert.equal(health.checks[1]?.detail, "Alla fält finns i senaste svaret. Inga avvisade körningar senaste dygnet.");
-  assert.match(health.checks[6]?.detail ?? "", /`~\/\.claude\.json`, som också innehåller din inloggning/);
+  assert.match(health.checks[7]?.detail ?? "", /`~\/\.claude\.json`, som också innehåller din inloggning/);
   assert.deepEqual(JSON.parse(JSON.stringify(health)), health);
 
   assert.match(check(facts({ inWindowProject: false }), "latest").detail, /Ingen session från fönstrets mappar\.$/);
@@ -242,10 +258,11 @@ test("det som inte går att läsa visas aldrig som i ordning", () => {
   f.collector = { ok: false, error: "connection.json saknas." };
   f.directories = { ok: false, error: "/home/user/.tokeniser/state har rättigheterna 0755 i stället för 0700." };
   f.runtime = { ok: false, error: "kommandot från anslutningen är okänt." };
+  f.history = { ok: false, error: "databasen är låst" };
   const health = buildHealth(f, NOW);
   assert.deepEqual(
     health.checks.map((c) => c.mark),
-    ["unknown", "unknown", "warning", "warning", "unknown", "unknown", "unknown"],
+    ["unknown", "unknown", "warning", "warning", "unknown", "unknown", "unknown", "unknown"],
   );
   assert.equal(health.checks[2]?.command, DISCONNECT_COMMAND);
   assert.match(health.summary, /^2 varningar · /);
@@ -253,4 +270,60 @@ test("det som inte går att läsa visas aldrig som i ordning", () => {
   const unreadable = check(facts({ settings: { unreadable: [{ file: "länkad/.claude/settings.json", error: "är en symbolisk länk" }] } }), "statusline");
   assert.equal(unreadable.mark, "unknown");
   assert.equal(unreadable.detail, "`länkad/.claude/settings.json` är en symbolisk länk.");
+});
+
+test("dagssummering och rensning: läget står i ord, och ett enstaka misslyckat försök är ingen varning", () => {
+  const ok = check(facts(), "history");
+  assert.equal(ok.mark, "ok");
+  assert.match(
+    ok.detail,
+    /^Summerat till och med 14\ssep, 2 dagar i `days\.jsonl`\. Rådata sparas i 90–121 dagar, och `events\/2026-09\.jsonl` tas bort tidigast \S+\s\d{1,2}\sdec kl\.\s\d{2}:\d{2}\.$/u,
+  );
+  assert.equal(
+    check(facts({ history: { summarizedDays: 0, lastSummarized: null, nextRemoval: null } }), "history").detail,
+    "Inga dagar är summerade än. En dag summeras en timme efter midnatt. Rådata sparas i 90–121 dagar.",
+  );
+
+  const running = { startedAt: NOW - 3 * HOUR, failingSince: null, error: null, pending: false };
+  const once = check(facts({ history: { maintenance: { ...running, failingSince: NOW - 5 * MIN, error: "låst" } } }), "history");
+  assert.equal(once.mark, "ok");
+  assert.match(once.detail, /Senaste försöket misslyckades och görs om inom 10 min\./);
+
+  const pending = check(facts({ history: { overdueDays: ["2026-09-13"], maintenance: { ...running, pending: true } } }), "history");
+  assert.equal(pending.mark, "ok", "dagar som summeras just nu ligger inte efter");
+  assert.match(pending.detail, /Äldre dagar summeras och gammal rådata rensas just nu\./);
+
+  const behind = { overdueDays: ["2026-09-13"], overdueMonths: [{ name: "2026-05.jsonl", dueAt: NOW - 30 * HOUR }], nextRemoval: null };
+  const started = check(facts({ history: { ...behind, maintenance: { ...running, startedAt: NOW - 14 * MIN } } }), "history");
+  assert.equal(started.mark, "ok", "strax efter start har inget fönster hunnit köra rensningen");
+  assert.equal(check(facts({ history: { ...behind, maintenance: { ...running, startedAt: NOW - 15 * MIN } } }), "history").mark, "warning");
+});
+
+test("dagssummering och rensning varnar när dagar eller månadsfiler ligger efter, när filen inte kan läsas och när försöken fortsätter att misslyckas", () => {
+  const behind = buildHealth(
+    facts({ history: { overdueDays: ["2026-09-13", "2026-09-14"], overdueMonths: [{ name: "2026-06.jsonl", dueAt: NOW - 2 * HOUR }], nextRemoval: null } }),
+    NOW,
+  );
+  assert.equal(behind.level, "warning");
+  assert.equal(behind.title, "Dagssummeringen ligger efter");
+  assert.match(
+    behind.checks.find((c) => c.id === "history")?.detail ?? "",
+    /^2 dagar med data saknar summering, den äldsta 13\ssep\. Rådata från de dagarna rensas inte förrän de är summerade\. `events\/2026-06\.jsonl` skulle ha tagits bort kl\.\s\d{2}:\d{2}\.$/u,
+  );
+  const months = check(facts({ history: { overdueMonths: [{ name: "2026-05.jsonl", dueAt: NOW - 30 * HOUR }, { name: "2026-06.jsonl", dueAt: NOW - 2 * HOUR }] } }), "history");
+  assert.match(months.detail, /^`events\/2026-05\.jsonl` och `events\/2026-06\.jsonl` finns kvar, fast den första skulle ha tagits bort /);
+
+  const unreadable = buildHealth(facts({ history: { daysError: "är en symbolisk länk", summarizedDays: 0, lastSummarized: null } }), NOW);
+  assert.equal(unreadable.title, "Dagssummeringarna kan inte läsas");
+  const row = unreadable.checks.find((c) => c.id === "history");
+  assert.equal(row?.detail, "`~/.tokeniser/days.jsonl` är en symbolisk länk. Inga nya dagar summeras, och ingen rådata rensas så länge.");
+  assert.match(row?.action ?? "", /Flytta undan den eller rätta ägare och rättigheter\./);
+
+  const error = "EACCES: permission denied, open `~/.tokeniser/.days.jsonl.tmp`";
+  const failing = buildHealth(facts({ history: { maintenance: { startedAt: NOW - 3 * HOUR, failingSince: NOW - 25 * MIN, error, pending: false } } }), NOW);
+  assert.equal(failing.title, "Dagssummering och rensning misslyckas");
+  assert.match(
+    failing.checks.find((c) => c.id === "history")?.detail ?? "",
+    /^Varje försök sedan kl\.\s\d{2}:\d{2} har misslyckats: EACCES: permission denied, open '~\/\.tokeniser\/\.days\.jsonl\.tmp'\. Ingen rådata tas bort förrän det fungerar igen\.$/u,
+  );
 });
