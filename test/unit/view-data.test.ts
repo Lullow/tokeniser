@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { openIndex } from "../../src/index/db.ts";
 import { ingest } from "../../src/index/ingest.ts";
@@ -41,6 +42,39 @@ test("tokens per dag räknar varje anrop en gång och bara de senaste 7 dagarna"
     data.days.map((day) => day.tokens),
     [0, 0, 0, 0, 0, 100, 500],
   );
+});
+
+test("ett anrop som syns både när svaret börjar och när det är klart räknas en gång, med högsta output", () => {
+  const call = (output: number, cacheRead: number) => ({ input: 2, output, cacheCreation: 600, cacheRead });
+  const data = dataFor(
+    [
+      { at: at(14, 23, 59), session: "a", usage: call(3, 135_000) },
+      { at: at(15, 0, 0), session: "b", usage: usage(50) },
+      { at: at(15, 0, 1), session: "a", usage: call(328, 135_000) },
+      { at: at(15, 9, 0), session: "a", usage: call(328, 136_000) },
+      { at: at(15, 9, 1), session: "a", usage: call(5, 136_000), five: 30 },
+    ],
+    "a",
+  );
+  assert.deepEqual(data.sessionTotals, { input: 4, output: 656, cacheCreation: 1_200, cacheRead: 271_000, calls: 2 });
+  assert.deepEqual(
+    data.days.slice(-2).map((day) => day.tokens),
+    [2 + 328 + 600 + 135_000, 50 + 2 + 328 + 600 + 136_000],
+  );
+});
+
+test("inspelad riktig data: tio anrop i stället för sexton", () => {
+  const text = readFileSync(new URL("../fixtures/events/real-2026-09.jsonl", import.meta.url), "utf8");
+  const home = makeStore();
+  appendEvents(home, "2026-09", text);
+  const db = openIndex(home);
+  try {
+    ingest(db, home);
+    const data = readViewData(db, "00000000-0000-4000-8000-000000000001", 1_789_421_829_093 + MINUTE);
+    assert.deepEqual(data.sessionTotals, { input: 202, output: 16_385, cacheCreation: 17_866, cacheRead: 3_773_579, calls: 10 });
+  } finally {
+    db.close();
+  }
 });
 
 test("dagens projekt har sessioner, aktiv tid utan pauser och tokens", () => {

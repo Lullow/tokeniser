@@ -84,19 +84,27 @@ function usageRows(db: DatabaseSync, where: string, ...params: SQLInputValue[]):
 const tokensOf = (r: UsageRow): number => (r.input ?? 0) + (r.output ?? 0) + (r.cacheCreation ?? 0) + (r.cacheRead ?? 0);
 
 /**
- * The status line only carries the latest API call, so each call is counted once, when its
- * usage first appears in a session. Calls between two status line updates are missed, which
- * makes every sum a lower bound (decision Q16: always marked as an estimate).
+ * The status line only carries the latest API call, and usually shows it twice: when the
+ * response starts, with a few output tokens, and when it is done. Consecutive rows in a session
+ * with the same input and cache tokens are therefore one call, counted once with its highest
+ * output, at the time it first appeared. Calls between two status line updates are missed,
+ * which makes every sum a lower bound (decision Q16: always marked as an estimate).
  */
 function newCalls(rows: readonly UsageRow[]): UsageRow[] {
-  const lastUsage = new Map<string, string>();
-  return rows.filter((row) => {
-    if (row.input === null && row.output === null && row.cacheCreation === null && row.cacheRead === null) return false;
-    const key = `${row.input}|${row.output}|${row.cacheCreation}|${row.cacheRead}`;
-    if (lastUsage.get(row.sessionId) === key) return false;
-    lastUsage.set(row.sessionId, key);
-    return true;
-  });
+  const open = new Map<string, UsageRow>();
+  const calls: UsageRow[] = [];
+  for (const row of rows) {
+    if (row.input === null && row.output === null && row.cacheCreation === null && row.cacheRead === null) continue;
+    const call = open.get(row.sessionId);
+    if (call !== undefined && call.input === row.input && call.cacheCreation === row.cacheCreation && call.cacheRead === row.cacheRead) {
+      if ((row.output ?? 0) > (call.output ?? 0)) call.output = row.output;
+      continue;
+    }
+    const next = { ...row };
+    open.set(row.sessionId, next);
+    calls.push(next);
+  }
+  return calls;
 }
 
 /** Time between consecutive events in a session, leaving out breaks. */

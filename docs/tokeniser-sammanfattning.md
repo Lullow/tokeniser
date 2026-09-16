@@ -110,7 +110,7 @@ Projektet är både ett personligt verktyg och ett lärprojekt. Poängen är ock
 | Q10 | **Gränserna** tas från det senaste värdet i vilken session som helst. **Kontext och modell** tas från den senast uppdaterade sessionen i fönstrets projekt, med den senaste sessionen totalt som reserv. Visas med "+N andra aktiva sessioner". |
 | Q12 | **Posten "Utanför VS Code (app, webb, andra enheter)"** är härledd och märkt som uppskattning, se risk R4. Det finns ingen uppdateringsknapp, eftersom inget dokumenterat sätt att hämta färsk data finns. Tokeniser visar "uppdateras vid nästa svar i Claude Code". |
 | Q15 | **Projektidentitet:** git-repot (`host/owner/name`) när det finns, annars `workspace.project_dir`. Worktrees räknas till samma projekt, med worktree-namnet som extra etikett. |
-| Q16 | **Mätvärden sparas bara när de ändras.** Rådata sparas i 90 dagar, dagssummeringar tills du raderar dem. Det som **inte** sparas beskrivs i avsnitt 7. **Dagssummor av tokens** är en undre gräns, eftersom statusraden bara ger det senaste anropet och uppdateringar inom 300 ms slås ihop. De märks alltid "uppskattning" (beslutat 2026-09-14). |
+| Q16 | **Mätvärden sparas bara när de ändras.** Rådata sparas i 90–121 dagar, eftersom en hel månadsfil rensas åt gången (ändrat 2026-09-16). Dagssummeringar sparas tills du raderar dem. Det som **inte** sparas beskrivs i avsnitt 7. **Dagssummor av tokens** är en undre gräns, eftersom statusraden bara ger det senaste anropet och uppdateringar inom 300 ms slås ihop. De märks alltid "uppskattning" (beslutat 2026-09-14). |
 | Q26 | **Kostnad visas inte för abonnenter** i första versionen. Värdet sparas ändå för eventuell framtida användning. |
 
 **De fyra tillstånden (Q7):**
@@ -334,7 +334,7 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - **Export:** rå JSONL från `events/`, sparad där du väljer.
        - Aviseringen efter exporten säger vad filen innehåller.
        - Den säger att bara du kan läsa filen bara om rättigheterna blev 0600. Annars, till exempel på en Windows-disk under `/mnt`, säger den det. Varningen i spara-dialogens rubrik märktes inte i skissen.
-       - CSV kommer i så fall med dagssummeringarna i Q16, med skydd mot formler i kalkylprogram.
+       - Dagssummeringarna i Q16 exporteras som JSONL, inte CSV (ändrat 2026-09-16).
      - **Terminalraden:** stängs av med `npm run connect -- --no-line`, och hälsokontrollen godkänner båda varianterna av kommandot.
      - **Dataraden:** ligger sist i vyn och visar antal händelser och storlek. Placeringen får ingen egen inställning, eftersom VS Code saknar API för att flytta en vy.
    - **Klart 2026-09-15:** punkt 8. Det byggda:
@@ -364,6 +364,25 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - `npm run package` bygger `tokeniser.vsix` med `@vscode/vsce` 4.0.0. Paketet ligger i låsfilen, så att även dess många beroenden är låsta.
      - `.vscodeignore` är en tillåtelselista. Paketet innehåller bara `package.json`, README, extensionen, webbvyn och ikonen: 8 filer, 39 kB. CI jämför innehållet mot listan.
      - Installerad i WSL med `code --install-extension tokeniser.vsix` och kontrollerad med skärmbilder i ett fönster med `~/projects/tokeniser`: statusraden, snabbkortet, vyn och hälsoraden med 6 kontroller i ordning.
+   - **Rättat 2026-09-16:** tokens räknades nästan dubbelt.
+     - **Orsak:** statusraden visar oftast samma anrop två gånger. Första gången är när svaret börjar, med några få output-tokens, och andra gången är när det är klart. Input- och cachesiffrorna är desamma båda gångerna, men eftersom output skilde sig räknades två anrop.
+     - **Omfattning:** i den riktiga datan blev det 866 anrop och 285 M tokens, men det rätta är 484 anrop och 160 M. Kostnaden bekräftar det: 409 av 546 ökningar kom när bara output ändrades. Testdatan hade 6 sådana par, men inget test fångade felet.
+     - **Rättelse:** rader i följd i en session med samma input- och cachesiffror räknas nu som ett anrop, med den högsta output-siffran och tiden då anropet syntes första gången. Summorna är då en undre gräns igen, som Q16 säger.
+     - **Påverkan:** kurvan, sessionens tokens och dagens projekt. Den 15 september sjönk från 195,7 M till 110,6 M. Felet hade också gett fel resultat i R4, som räknar procent per 1 000 tokens.
+   - **Beslutat 2026-09-16 om Q16,** efter två kritiska genomgångar av förslaget:
+     - **Rensning per hel månadsfil.**
+       - En månadsfil tas bort när 90 dagar har gått sedan månaden tog slut och alla dagar i filen har summerats. Rådata sparas alltså 90–121 dagar, och septemberfilen försvinner runt 30 december.
+       - Exakt 90 dagar valdes bort. Då skulle en månadsfil skrivas om varje dag, inläsningen skulle läsa om hela månaden varje dag, och det vore det enda stället där sanningskällan skrivs om.
+       - Händelser från borttagna filer tas bort ur indexet. Filer i `state/` som inte har ändrats på 90 dagar tas bort, och `problems.jsonl` tas bort när alla rader är äldre än 90 dagar. Det stänger kontraktets lucka 6.
+       - Rensningen körs bara när VS Code är öppet.
+     - **Dagssummeringar i `~/.tokeniser/days.jsonl`.**
+       - De sparas inte i indexet, eftersom indexet byggs om från rådatan.
+       - Varje dag har, per projekt och modell, sessioner, aktiv tid, tokens, anrop och kostnad. Dagen har också de högsta procenten för 5 h och vecka.
+       - Kostnaden räknas som ökningen av sessionens löpande summa, från sessionens första värde. Till skillnad från tokens fångar den även anrop som inte syns som egna uppdateringar.
+       - En dag summeras när den har varit slut i en timme. Summeringarna har ett versionsnummer och räknas om när räknesättet ändras, men bara om hela dagens rådata finns kvar.
+       - Fönstret som har indexlåset summerar, några dagar per uppdatering.
+     - **Export av summeringarna som JSONL, inte CSV.** CSV skulle kräva skydd mot formler och fungera dåligt i Excel med svenska inställningar, och en platt rad per modell räknar en session två gånger om modellen byts. CSV kan läggas till senare.
+     - **Ordning:** först rättelsen av dubbelräkningen, sedan dagssummeringar och rensning, sist export och raderingsdialog med skärmbilder.
 
 ---
 
