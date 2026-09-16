@@ -51,7 +51,7 @@ export function exportChoices(storage: StorageSummary, now: number): ExportChoic
       content: "days",
       label: "Dagssummeringar",
       description: daysSince(storage, now) ?? "",
-      detail: "En rad per dag med sessioner, tokens och kostnad per projekt och modell. De sparas tills du raderar dem.",
+      detail: "Tokens och kostnad per dag, projekt och modell. Sparas tills du raderar dem.",
     });
   }
   return choices;

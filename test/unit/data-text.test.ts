@@ -29,7 +29,7 @@ test("exporten erbjuder bara det som finns", () => {
       ["days", "Dagssummeringar", `3 dagssummeringar sedan 12${NB}sep`],
     ],
   );
-  assert.match(exportChoices(STORAGE, NOW)[1]?.detail ?? "", /sparas tills du raderar dem\.$/);
+  assert.equal(exportChoices(STORAGE, NOW)[1]?.detail, "Tokens och kostnad per dag, projekt och modell. Sparas tills du raderar dem.");
   assert.deepEqual(exportChoices({ ...STORAGE, days: null }, NOW).map((c) => c.content), ["events"]);
   assert.deepEqual(exportChoices({ ...EMPTY, days: 2, firstDay: STORAGE.firstDay }, NOW).map((c) => c.content), ["days"]);
   assert.deepEqual(exportChoices(EMPTY, NOW), []);
