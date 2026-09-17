@@ -5,6 +5,7 @@ import {
   canonicalJson,
   collectorArgv,
   collectorLayout,
+  nodeVersionSupported,
   parseConnectionState,
   planHash,
   statusLineCommand,
@@ -154,6 +155,15 @@ test("insamlaren körs med tom miljö och snäva rättigheter", () => {
   assert.equal(statusLineCommand("/usr/bin/node", LAYOUT, { line: true }), COMMAND);
 });
 
+test("anslutning kräver en Node där behörighetsmodellen nekar att skapa symlänkar", () => {
+  for (const version of ["24.13.0", "24.14.1", "v24.14.1", "25.3.0", "26.0.0", "30.1.2"]) {
+    assert.equal(nodeVersionSupported(version), true, version);
+  }
+  for (const version of ["20.20.0", "22.22.0", "23.11.1", "24.0.0", "24.12.9", "25.2.1", "", "24", "24.13", "24.13.0-pre", "x24.13.0"]) {
+    assert.equal(nodeVersionSupported(version), false, version);
+  }
+});
+
 test("sökvägar med skaltecken eller .. avvisas", () => {
   for (const home of ["/home/a b/.tokeniser", "/home/x'y/.tokeniser", "/home/$USER/.tokeniser", "/home/lullo/../root/.tokeniser", "relative/.tokeniser"]) {
     assert.throws(() => collectorArgv("/usr/bin/node", collectorLayout(home)), /inte är tillåtna/);
@@ -166,7 +176,7 @@ const PLAN: ConnectPlan = {
   action: "connect",
   uid: 1000,
   env: "/usr/bin/env",
-  node: { path: "/usr/bin/node", sha256: sha256("node") },
+  node: { path: "/usr/bin/node", version: "24.14.1", sha256: sha256("node") },
   command: COMMAND,
   directories: [{ path: LAYOUT.home, mode: 0o700 }],
   collector: { path: LAYOUT.collector, mode: 0o600, sha256: sha256("collector"), replacesSha256: null },
@@ -193,6 +203,7 @@ test("planens hash ändras när diff, hash, sökväg eller rättigheter ändras"
     (p) => { p.directories[0]!.mode = 0o755; },
     (p) => { p.backup = null; },
     (p) => { p.node.sha256 = sha256("other node"); },
+    (p) => { p.node.version = "24.13.0"; },
     (p) => { p.command = `${p.command} --no-line`; },
     (p) => { p.uid = 0; },
   ];

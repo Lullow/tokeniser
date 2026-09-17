@@ -6,7 +6,7 @@ VS Code-extension som gör användningen av Claude Code synlig och begriplig –
 
 ## Utveckling
 
-Kräver Node 24 och VS Code med WSL.
+Kräver Node 24.13 eller senare och VS Code med WSL.
 
 ```sh
 npm install

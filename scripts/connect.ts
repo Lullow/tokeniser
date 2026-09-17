@@ -11,6 +11,8 @@ import {
   backupFileName,
   collectorLayout,
   ENV_PATH,
+  NODE_REQUIREMENT,
+  nodeVersionSupported,
   parseConnectionState,
   planHash,
   statusLineCommand,
@@ -125,6 +127,11 @@ function gatherConnect(noLine: boolean): ConnectWork {
   }
   verifyEnvBinary();
 
+  // The command runs this very Node binary, so its version is the one that matters.
+  const nodeVersion = process.versions.node;
+  if (!nodeVersionSupported(nodeVersion)) {
+    fail(`Node ${nodeVersion} stöds inte. Insamlaren kräver ${NODE_REQUIREMENT}, där behörighetsmodellen nekar att skapa symboliska länkar (CVE-2025-55130).`);
+  }
   const nodePath = realpathSync(process.execPath);
   const nodeStat = lstatSync(nodePath);
   let collectorBytes: Buffer;
@@ -152,7 +159,7 @@ function gatherConnect(noLine: boolean): ConnectWork {
     action: "connect",
     uid,
     env: ENV_PATH,
-    node: { path: nodePath, sha256: sha256(readFileSync(nodePath)) },
+    node: { path: nodePath, version: nodeVersion, sha256: sha256(readFileSync(nodePath)) },
     command,
     directories: directories.map((path) => ({ path, mode: 0o700 })),
     collector: {
@@ -196,6 +203,7 @@ function printConnect(work: ConnectWork, hash: string): void {
   ]);
   section("Node", [
     plan.node.path,
+    `version ${plan.node.version}`,
     `sha256 ${plan.node.sha256}`,
     ...(work.nodeUserWritable ? ["Obs: filen kan ändras av din användare, till exempel av nvm."] : []),
   ]);

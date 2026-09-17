@@ -145,6 +145,9 @@ process.stdout.write(JSON.stringify({
   writeConnection: attempt(() => fs.writeFileSync(path.join(home, "connection.json"), "x")),
   readBackup: attempt(() => fs.readFileSync(path.join(home, "backup", "settings.json"))),
   writeOutside: attempt(() => fs.writeFileSync(path.join(home, "..", "outside.txt"), "x")),
+  symlinkOutside: attempt(() => fs.symlinkSync(path.join(home, "..", "outside.txt"), path.join(home, "events", "outside"))),
+  symlinkToSelf: attempt(() => fs.symlinkSync("../bin/collector.cjs", path.join(home, "events", "self"))),
+  hardLinkToSelf: attempt(() => fs.linkSync(path.join(home, "bin", "collector.cjs"), path.join(home, "events", "self-hard"))),
   spawn: attempt(() => require("node:child_process").spawnSync("/bin/true")),
   environment: Object.keys(process.env).length,
   appendEvents: attempt(() => fs.appendFileSync(path.join(home, "events", "probe.jsonl"), "x\\n")),
@@ -162,11 +165,15 @@ test("behörighetsmodellen stoppar en ändrad insamlare från det viktigaste (sk
     writeConnection: "ERR_ACCESS_DENIED",
     readBackup: "ERR_ACCESS_DENIED",
     writeOutside: "ERR_ACCESS_DENIED",
+    symlinkOutside: "ERR_ACCESS_DENIED",
+    symlinkToSelf: "ERR_ACCESS_DENIED",
+    hardLinkToSelf: "ERR_ACCESS_DENIED",
     spawn: "ERR_ACCESS_DENIED",
     environment: 0,
     appendEvents: "allowed",
   });
   assert.ok(!existsSync(join(home, "..", "outside.txt")));
+  assert.deepEqual(readdirSync(join(home, "events")), ["probe.jsonl"]);
 });
 
 test("bundlen använder bara tillåtna Node-moduler, ingen miljö och ingen dynamisk kod", () => {

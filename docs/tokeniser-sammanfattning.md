@@ -428,6 +428,11 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - **Fördröjningen (R5) syntes:** ingen terminalsession svarade mellan 12:13 och 12:16, så ökningen kom först med svaret kl. 12:16:34. Veckosiffran gick från 3 till 4 % redan kl. 12:12, före sökningen, och fångade inget.
      - **Osäkerhet:** procenten kommer i hela enheter, så varje skillnad kan vara fel med ungefär en enhet. Jämförelsetakten är brusig, eftersom kostnaden ibland rapporteras sent: en session redovisade 4,10 USD i ett enda svar kl. 12:10, för tid sedan kl. 08:32. Annan användning utan statusrad samtidigt, till exempel Claude-panelen i VS Code, går inte att utesluta.
      - **Följd:** räknat på kostnad sticker Desktop-användningen ut tydligt, vilket talar för förslaget i R4. Det är en enda händelse, inte en validering.
+   - **Klart 2026-09-17:** länkar i behörighetsmodellen, efter en granskning från en annan session.
+     - **Granskningen stämde i sak.** Testerna kördes om med insamlarens riktiga flaggor i Node 24.14.1. Modellen skriver genom länkar som redan finns, men nekar att skapa symboliska länkar och hårda länkar ut ur `events/` och `state/`. Nätverket nås fortfarande (lucka 1).
+     - **Det granskningen missade:** att nya länkar nekas kom med rättelsen av CVE-2025-55130 (Node 24.13.0 och 25.3.0) och är ingen fast egenskap hos modellen. Det är också det enda som hindrar en ändrad insamlare från att länka till `bin/collector.cjs` och skriva över sig själv. Anslutningen använde den Node som körde skriptet, utan att kontrollera versionen.
+     - **Byggt:** anslutningen avbryts med en Node utan rättelsen, och planen visar versionen. Testet med en ändrad insamlare försöker skapa tre länkar. Lucka 3 beskriver både länkar som redan finns och nya länkar. Versionen kontrolleras inte i hälsokontrollen, eftersom bara din användare eller root kan byta Node-filen efter anslutningen.
+     - **Lucka 5:** när den åtgärdas ska även C1-tecken och tecken som styr textriktningen tas bort.
 
 ---
 

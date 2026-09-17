@@ -72,7 +72,7 @@ Claude Code kör insamlaren automatiskt varje gång statusraden uppdateras, i al
 |---|---|---|---|
 | 1 | Läser inga miljövariabler | Utanför Node (`env -i`) och kod | `behörighetsmodellen stoppar en ändrad insamlare från det viktigaste (skydd på djupet)`, `bundlen använder bara tillåtna Node-moduler, ingen miljö och ingen dynamisk kod`, `insamlaren körs med tom miljö och snäva rättigheter` |
 | 2 | Tar bara emot `--home` med absolut sökväg och `--no-line` | Kod | `osäker eller saknad lagring stoppar aldrig statusraden`, `--no-line sparar men skriver ingen rad` |
-| 3 | Skriver bara i `events/` och `state/` | Behörighetsmodellen och kod | `behörighetsmodellen stoppar en ändrad insamlare från det viktigaste (skydd på djupet)`, `symlänkad events-mapp avvisas och målet lämnas orört` |
+| 3 | Skriver bara i `events/` och `state/` | Behörighetsmodellen, med Node-versionen kontrollerad vid anslutning, och kod | `behörighetsmodellen stoppar en ändrad insamlare från det viktigaste (skydd på djupet)`, `anslutning kräver en Node där behörighetsmodellen nekar att skapa symlänkar`, `symlänkad events-mapp avvisas och målet lämnas orört` |
 | 4 | Skriver aldrig genom en hård länk | Kod | `hårt länkad månadsfil avvisas och målet lämnas orört`, `tillägg genom en hård länk avvisas och målet lämnas orört` |
 | 5 | Läser bara sin egen fil, `events/` och `state/` | Behörighetsmodellen | `behörighetsmodellen stoppar en ändrad insamlare från det viktigaste (skydd på djupet)` |
 | 6 | Skapar inga mappar | Kod, och behörighetsmodellen utanför `events/` och `state/` | `insamlaren skapar inga mappar själv` |
@@ -90,9 +90,12 @@ Testerna finns i `test/unit/` och `test/e2e/` och körs med `npm test`.
 
 1. **Nätverk stoppas inte utanför vår kod.** I Node 24.14 nådde ett anslutningsförsök nätverket trots `--permission` (`ECONNREFUSED`). Två vägar ska utredas: `unshare -rn`, som kräver att användarnamnrymder är tillåtna, och `--allow-net` i nyare Node-versioner, som inte är verifierat.
 2. **Insamlaren kan inte kontrollera mappkedjan till `~/.tokeniser` själv.** Behörighetsmodellen nekar insamlaren `lstat` ovanför `events/` och `state/`. Anslutningen kontrollerar kedjan, och hälsokontrollen i extensionen gör om kontrollen vid varje uppdatering. Den upptäcker en ändring men hindrar inte insamlaren från att skriva under tiden.
-3. **Hårda länkar hanteras av koden, inte av körmiljön.** Behörighetsmodellen jämför bara sökvägar.
+3. **Länkar som redan finns hanteras av koden, inte av körmiljön.** Behörighetsmodellen jämför bara sökvägar och skriver genom både symboliska och hårda länkar som redan finns i `events/` och `state/`. Det som stoppar det är `O_NOFOLLOW`, `lstat` och kontrollen av antalet hårda länkar i vår kod.
+   - **Nya länkar nekas av behörighetsmodellen.** Den nekar att skapa symboliska länkar över huvud taget, och hårda länkar till filer utanför `events/` och `state/`. En ändrad insamlare kan alltså inte länka till `bin/collector.cjs` eller en fil utanför och skriva genom länken. Hårda länkar mellan filer i `events/` och `state/` tillåts, men de leder inte ut.
+   - **Det gäller bara i Node med rättelsen av CVE-2025-55130** (24.13.0 och 25.3.0). I äldre versioner kunde en relativ symbolisk länk leda ut ur mappen. Därför avbryts anslutningen med en äldre Node. Node 22.22 har också rättelsen, men insamlaren är bara testad med Node 24.
+   - Efter anslutningen kan bara din användare eller root byta ut Node-filen, så versionen kontrolleras inte igen (jämför lucka 7).
 4. **stdin läses i sin helhet** innan storleksgränsen på 1 MiB kontrolleras.
-5. **Fritext rensas inte från kontrolltecken** innan den sparas. Terminalraden påverkas inte, men vyn och framtida kommandon måste escapa texten.
+5. **Fritext rensas inte från kontrolltecken** innan den sparas. Terminalraden påverkas inte, men vyn och framtida kommandon måste escapa texten. När luckan åtgärdas ska även C1-tecknen (U+0080–U+009F) och tecknen som styr textriktningen tas bort, till exempel med `/[\p{Cc}\p{Bidi_Control}]/gu`. Tecknen för textriktning kan få text att visas i en annan ordning än den sparas, och escaping hjälper inte mot dem.
 6. **`problems.jsonl` och `state/` rensas bara när VS Code är öppet.** Extensionen tar bort filer i `state/` som inte har ändrats på 90 dagar, och `problems.jsonl` när alla rader är äldre än 90 dagar. Tills dess växer de (stängd 2026-09-16).
 7. **Node-filens innehåll jämförs inte efter anslutningen. Luckan är godtagen (2026-09-15).**
    - Hashen binder bara planen till godkännandet.
