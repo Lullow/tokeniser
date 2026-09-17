@@ -423,6 +423,11 @@ VS Code-extension: statusrad · snabbkort · vy · hälsokontroll
      - **Kostnaden verkar räkna med subagenterna:** under en subagents 6 minuter kom 2 uppdateringar av statusraden, men kostnaden steg med 2,72 USD. En vanlig ökning var i mitten 0,09 USD och som mest 1,30 USD. En andra session visade samma mönster. Det är starka tecken, inte bevis.
      - **Följd för R4:** se förslaget i riskregistret. Inget byggs innan det är beslutat.
      - **Om loggarna någon gång används:** i huvudloggen har alla rader för ett anrop samma usage. I en subagents logg har rader utan `stop_reason` samma värden som när svaret började, med 2–24 output-tokens. Rätt värde står på raden med `stop_reason`, och den raden kan saknas helt.
+   - **Datapunkt för R4 2026-09-17:** en större sökning i Claude Desktop, ungefär kl. 12:15–12:20, jämförd med statusraden. Desktop har ingen statusrad och syns inte som en session, bara i procenten för 5 h.
+     - **Hoppet:** mellan 12:13:13 och 12:16:59 gick procenten för 5 h från 29 till 31 %. Terminalsessionerna kostade då cirka 0,54 USD. Mellan 11:20 och 12:10 gav ungefär 2–2,5 USD en procentenhet, så den lokala kostnaden förklarar bara ett par tiondelar. Mellan 12:17 och 12:23 gick procenten från 31 till 34 % för cirka 4,3 USD. Uppskattningsvis tog sökningen 2–3 procentenheter.
+     - **Fördröjningen (R5) syntes:** ingen terminalsession svarade mellan 12:13 och 12:16, så ökningen kom först med svaret kl. 12:16:34. Veckosiffran gick från 3 till 4 % redan kl. 12:12, före sökningen, och fångade inget.
+     - **Osäkerhet:** procenten kommer i hela enheter, så varje skillnad kan vara fel med ungefär en enhet. Jämförelsetakten är brusig, eftersom kostnaden ibland rapporteras sent: en session redovisade 4,10 USD i ett enda svar kl. 12:10, för tid sedan kl. 08:32. Annan användning utan statusrad samtidigt, till exempel Claude-panelen i VS Code, går inte att utesluta.
+     - **Följd:** räknat på kostnad sticker Desktop-användningen ut tydligt, vilket talar för förslaget i R4. Det är en enda händelse, inte en validering.
 
 ---
 
