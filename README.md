@@ -1,108 +1,108 @@
 # Tokeniser
 
-VS Code-extension som gör användningen av Claude Code synlig och begriplig – bara från dokumenterade, lokala källor.
+VS Code extension that makes Claude Code usage visible and comprehensible — from documented, local sources only.
 
-**Status:** tidigt skede. Alla designbeslut finns i [docs/tokeniser-sammanfattning.md](docs/tokeniser-sammanfattning.md). Den klickbara skissen i [docs/skiss/tokeniser-skiss.html](docs/skiss/tokeniser-skiss.html) ska godkännas innan vyn byggs.
+**Status:** early stage. All design decisions live in [docs/tokeniser-sammanfattning.md](docs/tokeniser-sammanfattning.md). The clickable mockup in [docs/skiss/tokeniser-skiss.html](docs/skiss/tokeniser-skiss.html) is to be approved before the view is built.
 
-## Utveckling
+## Development
 
-Kräver Node 24.13 eller senare och VS Code med WSL.
+Requires Node 24.13 or later and VS Code with WSL.
 
 ```sh
 npm install
-npm run build          # bygger dist/extension.js och dist/collector.js med esbuild
-npm run watch          # bygger om vid ändring
+npm run build          # builds dist/extension.js and dist/collector.js with esbuild
+npm run watch          # rebuilds on change
 npm run typecheck
-npm test               # enhetstester och tester av den byggda insamlaren
-npm run test:integration  # startar VS Code 1.137.0 med påhittad data; kräver en skärm (CI använder xvfb)
+npm test               # unit tests and tests of the built collector
+npm run test:integration  # launches VS Code 1.137.0 with synthetic data; needs a display (CI uses xvfb)
 ```
 
-Starta extensionen i en utvecklingsinstans med F5 ("Kör extension").
+Launch the extension in a development instance with F5 ("Run extension").
 
-CI på GitHub (`.github/workflows/ci.yml`) kör typkontroll, enhetstester, tester från början till slut och integrationstesterna i VS Code vid varje push till `main` och varje pull request. Arbetsflödet har bara läsrättighet, inga hemligheter och actions låsta till exakta commits.
+CI on GitHub (`.github/workflows/ci.yml`) runs type checking, unit tests, end-to-end tests and the VS Code integration tests on every push to `main` and every pull request. The workflow has read-only permission, no secrets, and actions pinned to exact commits.
 
-## Installera
+## Install
 
 ```sh
-npm run package                              # bygger tokeniser.vsix med bara det extensionen behöver
-code --install-extension tokeniser.vsix      # i en WSL-terminal: installerar i VS Code-servern i WSL
-code --uninstall-extension lullo.tokeniser   # tar bort den igen
+npm run package                              # builds tokeniser.vsix with only what the extension needs
+code --install-extension tokeniser.vsix      # from a WSL terminal: installs into the VS Code server in WSL
+code --uninstall-extension lullo.tokeniser   # removes it again
 ```
 
-Ladda om VS Code-fönstret efter installationen. Insamlaren ansluts fortfarande med `npm run connect`. Vilka filer VSIX-filen får innehålla styrs av tillåtelselistan i `.vscodeignore`, och CI kontrollerar innehållet.
+Reload the VS Code window after installing. The collector is still connected with `npm run connect`. Which files the VSIX may contain is governed by the allow-list in `.vscodeignore`, and CI verifies the contents.
 
-## Insamlaren
+## The collector
 
-Claude Code kör insamlaren som statusrad. Den validerar JSON-datan, skriver en kort rad i terminalen (`5h 64% · v 31% · ktx 21%`) och lägger till en rad i `~/.tokeniser/events/ÅÅÅÅ-MM.jsonl` när mätvärdena har ändrats. Konversationsinnehåll, `session_name`, `transcript_path` och `prompt_id` sparas aldrig.
+Claude Code runs the collector as a status line. It validates the JSON data, prints a short line in the terminal (`5h 64% · w 31% · ctx 21%`) and appends a line to `~/.tokeniser/events/YYYY-MM.jsonl` when the metrics have changed. Conversation content, `session_name`, `transcript_path` and `prompt_id` are never stored.
 
-Tills extensionen har en egen anslutningsknapp finns ett utvecklingsskript. Det visar först en plan och planens hash. `--apply` kräver just den hashen, som binder godkännandet till varje sökväg, rättighet, filhash och diffrad. Ändras något innan planen utförs avbryts körningen utan ändringar.
+Until the extension has a connect button of its own, there is a development script. It first shows a plan and the plan's hash. `--apply` requires exactly that hash, which binds the approval to every path, permission, file hash and diff line. If anything changes before the plan is applied, the run aborts without changes.
 
 ```sh
-npm run connect                                   # visar planen och dess hash, ändrar inget
-npm run connect -- --no-line                      # samma plan, men utan rad i terminalens statusrad
-npm run connect -- --apply=<hash>                 # utför exakt den planen
-npm run connect -- --disconnect                   # visar planen för frånkoppling
-npm run connect -- --disconnect --apply=<hash>    # återställer settings.json och tar bort insamlaren
+npm run connect                                   # shows the plan and its hash, changes nothing
+npm run connect -- --no-line                      # same plan, but without a line in the terminal status line
+npm run connect -- --apply=<hash>                 # applies exactly that plan
+npm run connect -- --disconnect                   # shows the disconnection plan
+npm run connect -- --disconnect --apply=<hash>    # restores settings.json and removes the collector
 ```
 
-Skydd i korthet:
-- Hela mappkedjan till `~/.tokeniser` och `~/.claude/settings.json` kontrolleras med `lstat`: inga symboliska länkar, rätt ägare, ingen annan kan skriva. Filer öppnas med `O_NOFOLLOW` och kontrolleras sedan på den öppnade filen, inklusive antal hårda länkar.
-- `settings.json` skrivs atomärt via en temporär fil och avbryts om innehållet har ändrats sedan planen gjordes.
-- Frånkopplingen tar aldrig sökvägar från `connection.json`.
-- Insamlaren körs med `env -i` och Nodes behörighetsmodell: den får läsa sin egen fil och läsa och skriva i `events/` och `state/`. Det är skydd på djupet, inte en sandlåda. Behörighetsmodellen stoppar till exempel inte nätverk i Node 24.
-- Varje löfte och vad som upprätthåller det står i [docs/insamlarens-sakerhetskontrakt.md](docs/insamlarens-sakerhetskontrakt.md).
+Protections in brief:
+- The entire directory chain to `~/.tokeniser` and `~/.claude/settings.json` is checked with `lstat`: no symbolic links, correct owner, not writable by anyone else. Files are opened with `O_NOFOLLOW` and then checked on the opened file, including the hard link count.
+- `settings.json` is written atomically via a temporary file, and aborts if the contents have changed since the plan was made.
+- Disconnection never takes paths from `connection.json`.
+- The collector runs with `env -i` and Node's permission model: it may read its own file and read and write in `events/` and `state/`. This is defence in depth, not a sandbox. The permission model does not, for example, stop networking in Node 24.
+- Every promise and what enforces it is documented in [docs/insamlarens-sakerhetskontrakt.md](docs/insamlarens-sakerhetskontrakt.md).
 
-## Inläsning
+## Indexing
 
-`npm run index` läser nya händelser från `~/.tokeniser/events/` till `~/.tokeniser/index.sqlite` och visar en sammanfattning. JSONL-filerna är sanningskällan. Indexet kan alltid byggas om med `npm run index -- --rebuild`.
+`npm run index` reads new events from `~/.tokeniser/events/` into `~/.tokeniser/index.sqlite` and prints a summary. The JSONL files are the source of truth. The index can always be rebuilt with `npm run index -- --rebuild`.
 
-- Bara en process i taget läser in, via låsfilen `index.lock`. Varje händelse är unik per fil och byteposition, så inte ens samtidiga läsare utan lås ger dubbletter.
-- Läsläget sparas per fil. En halv rad väntar tills den är klar, och en ersatt eller trunkerad fil läses om från början.
-- Raderna behandlas som opålitlig data och valideras igen. Text med kontrolltecken sparas inte.
-- Projekt identifieras via repot när det finns, annars via mappen. Får en mapp senare en repo-identitet slås historiken ihop.
+- Only one process indexes at a time, via the lock file `index.lock`. Every event is unique per file and byte offset, so not even concurrent readers without a lock produce duplicates.
+- Read position is stored per file. A partial line waits until it is complete, and a replaced or truncated file is read again from the start.
+- Lines are treated as untrusted data and validated again. Text containing control characters is not stored.
+- Projects are identified by the repository where there is one, otherwise by the directory. If a directory later gains a repository identity, the history is merged.
 
-## I VS Code
+## In VS Code
 
-Starta en utvecklingsinstans med F5 ("Kör extension"). Extensionen körs inne i WSL och läser `~/.tokeniser`.
+Launch a development instance with F5 ("Run extension"). The extension runs inside WSL and reads `~/.tokeniser`.
 
-- **Statusraden** visar förbrukat, till exempel `5h 64% · v 31%`. Välj läge med `tokeniser.statusBar.mode`: båda gränserna, bara 5 h, bara vecka, närmaste gräns eller kontext. Varningsfärgen börjar vid `tokeniser.statusBar.warningAt` (80) och felfärgen vid `tokeniser.statusBar.errorAt` (95).
-- **Datatillstånd:** en klocka visas när senaste värdet är äldre än 5 minuter, `↺` när gränsen har återställts och `–` när värdet saknas. Ett saknat värde visas aldrig som 0.
-- **Snabbkortet** visas när musen hålls över statusraden. Det har ringar för gränserna, tid till återställning, kontexten i fönstrets projekt, andra aktiva sessioner, en prognos märkt uppskattning och länken "Öppna Tokeniser".
-- **Vyn** ligger i bottenpanelen bredvid Terminal. Klicka på Tokeniser i statusraden för att visa eller dölja den. Den har gränsringar, prognoser, kontextstapel, sessionens tokens, en kurva över 7 dagar, dagens projekt och förslag med kopieringsknapp. Tokens per dag och per session är uppskattningar.
-- **Högra sidopanelen:** högerklicka på fliken Tokeniser och välj att flytta den till det sekundära sidofältet. Layouten anpassar sig efter bredden.
-- **Förslaget om stor kontext** visas vid `tokeniser.suggestions.contextTokens` (200 000) eller `tokeniser.suggestions.contextPercent` (60), det som kommer först.
-- **Hälsa** ligger överst i vyn och är utfälld bara när något är fel. Den visar:
-  - senaste data
-  - fält som saknas och varför
-  - om insamlaren har ändrats
-  - om Tokenisers mappar är skyddade
-  - om Node-filen och `/usr/bin/env` finns, är körbara och är skyddade
-  - om en annan inställning tar över eller stänger av statusraden
+- **The status line** shows consumption, for example `5h 64% · w 31%`. Choose the mode with `tokeniser.statusBar.mode`: both limits, 5 h only, week only, nearest limit, or context. The warning colour starts at `tokeniser.statusBar.warningAt` (80) and the error colour at `tokeniser.statusBar.errorAt` (95).
+- **Data state:** a clock appears when the latest value is older than 5 minutes, `↺` when the limit has reset, and `–` when the value is missing. A missing value is never shown as 0.
+- **The quick card** appears on hover over the status line. It has rings for the limits, time until reset, the context in the window's project, other active sessions, a forecast labelled as an estimate, and the "Open Tokeniser" link.
+- **The view** sits in the bottom panel next to the Terminal. Click Tokeniser in the status line to show or hide it. It has limit rings, forecasts, a context bar, session tokens, a 7-day curve, today's projects, and suggestions with a copy button. Tokens per day and per session are estimates.
+- **Right side panel:** right-click the Tokeniser tab and choose to move it to the secondary side bar. The layout adapts to the width.
+- **The large-context suggestion** appears at `tokeniser.suggestions.contextTokens` (200,000) or `tokeniser.suggestions.contextPercent` (60), whichever comes first.
+- **Health** sits at the top of the view and is expanded only when something is wrong. It shows:
+  - the latest data
+  - fields that are missing and why
+  - whether the collector has been modified
+  - whether Tokeniser's directories are protected
+  - whether the Node binary and `/usr/bin/env` exist, are executable and are protected
+  - whether another setting overrides or disables the status line
 
-  Vid varning får statusraden en ikon, och snabbkortet får en rad med länken "Visa hälsa". Inställningsfiler läses bara för inspektion, och `~/.claude.json` läses aldrig, eftersom den innehåller inloggningen.
-- **Data** ligger sist i vyn. Raden visar antal händelser och storlek, följt av Exportera…, Radera… och Inställningar. Samma sak finns i kommandopaletten.
-  - **Exportera** sparar alla händelser som JSONL där du väljer. Aviseringen efteråt säger vad filen innehåller och vem som kan läsa den.
-  - **Radera** bekräftas i VS Codes dialog. När Tokeniser är ansluten tas insamlad data bort, annars hela `~/.tokeniser`. Bara filer som Tokeniser har skapat tas bort.
-- Ett fönster i taget läser in nya händelser till indexet. Övriga fönster läser bara.
+  On a warning, the status line gets an icon and the quick card gets a row with the "Show health" link. Settings files are read for inspection only, and `~/.claude.json` is never read, because it contains the login.
+- **Data** sits last in the view. The row shows the event count and size, followed by Export…, Delete… and Settings. The same actions are in the command palette.
+  - **Export** saves all events as JSONL wherever you choose. The notification afterwards states what the file contains and who can read it.
+  - **Delete** is confirmed in VS Code's dialog. When Tokeniser is connected, collected data is removed; otherwise all of `~/.tokeniser`. Only files Tokeniser created are removed.
+- One window at a time indexes new events. Other windows only read.
 
-F5 kräver att mappen `tokeniser` är öppen som rotmapp i VS Code.
+F5 requires the `tokeniser` directory to be open as the root folder in VS Code.
 
-## Struktur
+## Structure
 
 ```
-src/extension.ts      ingång för VS Code: statusraden och snabbkortet
-src/status/           statusradens text, datatillstånd, prognos och snabbkort
-src/view/             vyn: data, modell, förslag, säkerhetsregler och webbvyn i src/view/webview/
-src/collector/        insamlaren: validering, statusrad och lagring
-src/connect/          plan, planhash, diff och återställning för settings.json
-src/index/            inläsning till SQLite: validering, projektidentitet, lås och läsläge
-src/data/             export, radering och texterna i deras dialoger
-src/health/           hälsokontrollen: fakta från filer, inställningar och indexet, och raderna i vyn
-src/secure/           kontrollerad filhantering: mappkedja, ägare, rättigheter, atomära skrivningar
-scripts/connect.ts    utvecklingsskript för anslutning
-scripts/index.ts      utvecklingsskript för inläsning
-test/unit/            enhetstester
-test/e2e/             tester av byggd insamlare, anslutning och inläsning
-test/fixtures/        exempel från dokumentationen och anonymiserad riktig data
-docs/                 beslut, skisser och säkerhetskontrakt
+src/extension.ts      VS Code entry point: the status line and the quick card
+src/status/           status line text, data state, forecast and quick card
+src/view/             the view: data, model, suggestions, security rules and the webview in src/view/webview/
+src/collector/        the collector: validation, status line and storage
+src/connect/          plan, plan hash, diff and rollback for settings.json
+src/index/            indexing into SQLite: validation, project identity, locking and read position
+src/data/             export, deletion and the text in their dialogs
+src/health/           the health check: facts from files, settings and the index, and the rows in the view
+src/secure/           controlled file handling: directory chain, owner, permissions, atomic writes
+scripts/connect.ts    development script for connecting
+scripts/index.ts      development script for indexing
+test/unit/            unit tests
+test/e2e/             tests of the built collector, connection and indexing
+test/fixtures/        examples from the documentation and anonymised real data
+docs/                 decisions, mockups and the security contract
 ```
