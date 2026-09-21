@@ -2,7 +2,9 @@
 
 VS Code extension that makes Claude Code usage visible and comprehensible — from documented, local sources only.
 
-**Status:** early stage. All design decisions live in [docs/tokeniser-sammanfattning.md](docs/tokeniser-sammanfattning.md). The clickable mockup in [docs/skiss/tokeniser-skiss.html](docs/skiss/tokeniser-skiss.html) is to be approved before the view is built.
+**Status:** working, pre-release (v0.0.1). The status line, quick card and view are built, with unit, end-to-end and VS Code integration tests running in CI. The collector is still connected with a development script rather than from inside the extension, and the extension is installed from a locally packaged VSIX rather than the Marketplace (see below).
+
+Design decisions are in [docs/tokeniser-sammanfattning.md](docs/tokeniser-sammanfattning.md) and the approved mockup in [docs/skiss/tokeniser-skiss.html](docs/skiss/tokeniser-skiss.html). Both are in Swedish, as is the security contract linked below.
 
 ## Development
 
